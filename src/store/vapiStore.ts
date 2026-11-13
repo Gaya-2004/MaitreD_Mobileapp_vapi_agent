@@ -19,7 +19,7 @@
 
 import { Alert, NativeModules, Platform, PermissionsAndroid } from 'react-native';
 import { create } from 'zustand';
-import { executeSingleAction, setActiveRouter, navigateScreen, UIAction } from '../utils/mobileAgentActionDispatcher';
+import { executeSingleAction, setActiveRouter, getActiveRouter, navigateScreen, UIAction } from '../utils/mobileAgentActionDispatcher';
 import { resolveRoute } from '../utils/agentRegistry';
 import { getMobileAgentContext } from '../utils/agentContext';
 import { buildMenuKeyterms, matchMenuItem, normalizeName } from '../utils/menuMatching';
@@ -28,6 +28,8 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useRestaurantStore } from '../store/useRestaurantStore';
 import { useLiveOrderStore } from '../store/useLiveOrderStore';
 import { useAddressStore } from '../store/useAddressStore';
+import { useOrderStore } from '../store/useOrderStore';
+import { orderApi } from '../services/apiService';
 import { useCartStore } from './useCartStore';
 
 // Cache executed toolCallIds to avoid duplicate execution
@@ -87,7 +89,7 @@ let vapiInstance: any = null;
 let listenersSetup = false;
 
 const isWebRTCSupported = () => {
-  if (Platform.OS === 'web') return false;
+  if (Platform.OS === 'web') return true;
   return !!(
     NativeModules &&
     (NativeModules.WebRTCModule ||
@@ -97,22 +99,25 @@ const isWebRTCSupported = () => {
 };
 
 const getVapi = () => {
-  if (!isWebRTCSupported()) {
-    return null;
-  }
   if (!vapiInstance) {
     if (!VapiClass) {
       try {
-        const mod = require('@vapi-ai/react-native');
-        VapiClass = mod.default || mod;
+        if (Platform.OS === 'web') {
+          const mod = require('@vapi-ai/web');
+          VapiClass = mod.default || mod;
+        } else {
+          const mod = require('@vapi-ai/react-native');
+          VapiClass = mod.default || mod;
+        }
       } catch (e) {
-        console.warn('[VapiStore] Native Vapi/WebRTC is not available in Expo Go client:', e);
+        console.warn('[VapiStore] Vapi SDK is not available:', e);
         return null;
       }
     }
     try {
       if (VapiClass) {
-        vapiInstance = new VapiClass(process.env.EXPO_PUBLIC_VAPI_PUBLIC_KEY || '');
+        const pubKey = process.env.EXPO_PUBLIC_VAPI_PUBLIC_KEY || '284fef39-2d93-4de5-881b-a082dacca5b1';
+        vapiInstance = new VapiClass(pubKey);
       }
     } catch (e) {
       console.warn('[VapiStore] Failed to initialize Vapi instance:', e);
@@ -124,22 +129,36 @@ const getVapi = () => {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface ChatMessage {
+export type AgentState =
+  | 'IDLE'
+  | 'LISTENING'
+  | 'PROCESSING'
+  | 'SPEAKING'
+  | 'EXECUTING_ACTION'
+  | 'WAITING_FOR_CONFIRMATION'
+  | 'ERROR';
+
+export interface ChatMessage {
+  id?: string;
   role: 'user' | 'agent' | 'assistant';
   text: string;
   isFinal?: boolean;
 }
 
-interface VapiState {
+export interface VapiState {
+  agentState: AgentState;
   isConnecting: boolean;
   isConnected: boolean;
   isMuted: boolean;
   messages: ChatMessage[];
   partialUserTranscript: string;
   partialAgentTranscript: string;
+  isTamilMode: boolean;
   startCall: () => Promise<void>;
   stopCall: () => void;
   toggleMute: () => void;
+  toggleLanguage: () => void;
+  stopSpeaking: () => void;
   clearMessages: () => void;
   setupListeners: (routerRef: any) => void;
   prewarm: () => void;
@@ -1037,7 +1056,131 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       }
 
       case 'place_order': {
-        return { toolCallId, result: JSON.stringify({ success: false, message: 'Please use proceed_to_checkout and confirm your order in the app.' }) };
+        const cartState = useCartStore.getState();
+        const rawItems = Object.values(cartState.items || {});
+        if (rawItems.length === 0) {
+          const emptyMsg = 'Your cart is currently empty. Please tell me which dishes you would like to order.';
+          const vapi = getVapi();
+          if (vapi?.say) vapi.say(emptyMsg, false, false, true);
+          return { toolCallId, result: JSON.stringify({ success: false, message: emptyMsg }) };
+        }
+
+        const restaurantState = useRestaurantStore.getState();
+        const authState = useAuthStore.getState();
+        const addressState = useAddressStore.getState();
+        const restId = restaurantState.selectedOutlet?.restaurant_id 
+          ? Number(restaurantState.selectedOutlet.restaurant_id)
+          : (restaurantState.selectedOutlet?.id && !isNaN(Number(restaurantState.selectedOutlet.id)) ? Number(restaurantState.selectedOutlet.id) : 1);
+
+        const currentOrderType = cartState.orderType || 'Take Away';
+        let backendOrderType = 'TAKEAWAY';
+        if (currentOrderType === 'Dine In') backendOrderType = 'DINE_IN';
+        else if (currentOrderType === 'Delivery') backendOrderType = 'DELIVERY';
+
+        const subtotal = cartState.getSubtotal();
+        const gst = cartState.getGst();
+        const discountAmount = cartState.getDiscountAmount();
+        const discountCode = cartState.discountCode;
+        const total = cartState.getGrandTotal();
+        const phone = authState.phone || '+919876543210';
+
+        const formattedCart = rawItems.map((item: any) => ({
+          id: Number(item.id || item.menu_item_id),
+          name: item.name,
+          quantity: Number(item.quantity || 1),
+          price: Number(item.price || 0),
+          image: item.image || '',
+        }));
+
+        const selectedAddressObj = addressState.addresses.find(a => a.id == addressState.selectedAddressId) || addressState.addresses[0];
+
+        try {
+          const orderPayload = {
+            restaurant_id: restId,
+            cart: formattedCart,
+            subtotal,
+            gst,
+            delivery_fee: 0,
+            packaging_fee: 0,
+            discount_amount: discountAmount,
+            discount_code: discountCode || null,
+            total_amount: total,
+            order_type: backendOrderType,
+            table_number: currentOrderType === 'Dine In' ? (cartState.tableNumber || 'T-01') : undefined,
+            payment_method: currentOrderType === 'Delivery' ? 'Cash on Delivery' : 'Pay at Counter',
+            phone,
+            delivery_address: currentOrderType === 'Delivery' ? (addressState.selectedDeliveryAddress || selectedAddressObj?.full_address || null) : null,
+          };
+
+          console.log('[VapiStore] Voice place_order -> calling orderApi.createOrder:', orderPayload);
+          const res = await orderApi.createOrder(orderPayload);
+          const placedOrderId = res?.orderId || `ORD-${Date.now()}`;
+          const placedDbId = String(res?.dbOrderId || '');
+
+          useOrderStore.getState().addPastOrder({
+            orderId: placedOrderId,
+            dbOrderId: placedDbId,
+            date: new Date().toISOString(),
+            total,
+            itemsCount: formattedCart.length,
+            status: 'Preparing',
+            payment_status: 'Pending',
+            table_number: orderPayload.table_number,
+            order_type: currentOrderType,
+            customer_phone: phone,
+            items: formattedCart,
+          });
+
+          useLiveOrderStore.getState().setLiveOrder(currentOrderType, placedOrderId, placedDbId, 'Preparing');
+          cartState.clearCart();
+
+          const speechConfirm = `Your order ${placedOrderId} for ${formattedCart.length} item${formattedCart.length > 1 ? 's' : ''} totaling ${total} rupees has been placed successfully!`;
+          const vapi = getVapi();
+          if (vapi?.say) {
+            vapi.say(speechConfirm, false, false, true);
+          }
+
+          if (currentOrderType === 'Dine In') {
+            navigateScreen('/track-order', {
+              orderId: placedOrderId,
+              dbOrderId: placedDbId,
+              tableNumber: orderPayload.table_number,
+              orderType: 'Dine In',
+            });
+          } else {
+            navigateScreen('/(checkout)/order-success', {
+              orderId: placedOrderId,
+              dbOrderId: placedDbId,
+              total: String(total),
+              paymentMethod: orderPayload.payment_method,
+              phone,
+              orderType: currentOrderType,
+              itemCount: String(formattedCart.length),
+            });
+          }
+
+          return {
+            toolCallId,
+            result: JSON.stringify({
+              success: true,
+              orderId: placedOrderId,
+              dbOrderId: placedDbId,
+              total,
+              message: speechConfirm,
+            }),
+          };
+        } catch (placeErr: any) {
+          console.error('[VapiStore] place_order failed:', placeErr);
+          const errMessage = `Failed to place order: ${placeErr?.message || 'Server error'}. Please proceed to checkout on screen.`;
+          navigateScreen('/(checkout)/checkout');
+          return {
+            toolCallId,
+            result: JSON.stringify({
+              success: false,
+              message: errMessage,
+            }),
+          };
+        }
       }
 
       case 'mcp_tool':
@@ -1069,29 +1212,98 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useVapiStore = create<VapiState>((set, get) => ({
+  agentState: 'IDLE',
   isConnecting: false,
   isConnected: false,
   isMuted: false,
   messages: [],
   partialUserTranscript: '',
   partialAgentTranscript: '',
+  isTamilMode: false,
 
   startCall: async () => {
-    // Seamlessly forward to unified Gemini Voice Store
-    try {
-      const { useGeminiVoiceStore } = require('./useGeminiVoiceStore');
-      return await useGeminiVoiceStore.getState().startCall();
-    } catch (e) {
-      console.warn('[VapiStore] Forwarding to useGeminiVoiceStore error:', e);
+    const assistantId = process.env.EXPO_PUBLIC_VAPI_ASSISTANT_ID || 'ed6d95ac-c202-4b86-a5e1-8647ba87638f';
+    if (!assistantId) {
+      Alert.alert(
+        'Voice Assistant Setup',
+        'Vapi Assistant ID is missing. Please configure EXPO_PUBLIC_VAPI_ASSISTANT_ID in your environment variables.'
+      );
+      set({ isConnecting: false, agentState: 'IDLE' });
+      return;
     }
-    set({ isConnecting: false });
+
+    set({ isConnecting: true, agentState: 'PROCESSING' });
+
+    // Request Android microphone permission
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+          {
+            title: 'Microphone Permission',
+            message: 'MaitreD needs access to your microphone for voice ordering and navigation.',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          Alert.alert('Permission Denied', 'Microphone access is required for the voice assistant.');
+          set({ isConnecting: false, agentState: 'IDLE' });
+          return;
+        }
+      } catch (err) {
+        console.warn('[VapiStore] Microphone permission error:', err);
+      }
+    }
+
+    const vapi = getVapi();
+    if (!vapi) {
+      Alert.alert('Error', 'Voice assistant could not be initialized.');
+      set({ isConnecting: false, agentState: 'IDLE' });
+      return;
+    }
+
+    get().setupListeners(getActiveRouter());
+
+    const { messages } = get();
+    const hasHistory = messages.filter((m) => m.isFinal && m.text).length > 0;
+    const cart = useCartStore.getState();
+    const cartCount = cart.getItemCount();
+
+    let dynamicFirstMessage = "Hello! I'm MaitreD, your AI dining assistant. How may I help you today?";
+    if (hasHistory) {
+      dynamicFirstMessage = "I'm back. Let's continue.";
+    } else if (cartCount > 0) {
+      dynamicFirstMessage = `Welcome to MaitreD! You have ${cartCount} item${cartCount > 1 ? 's' : ''} in your cart. Would you like to view your cart, add more dishes, or place your order?`;
+    }
+
+    const overrides = { 
+      firstMessage: dynamicFirstMessage, 
+      maxDurationSeconds: 3600,
+    };
+
+    try {
+      console.log(`[VapiStore] Starting Vapi call with assistant: ${assistantId}...`);
+      await vapi.start(assistantId, overrides);
+      set({ isConnected: true, isConnecting: false, agentState: 'LISTENING' });
+    } catch (e: any) {
+      console.warn('[VapiStore] startCall error:', e);
+      set({ isConnecting: false, agentState: 'IDLE' });
+      Alert.alert('Voice Assistant', e?.message || 'Could not connect to voice assistant.');
+    }
   },
 
   stopCall: () => {
-    getVapi()?.stop();
+    try {
+      getVapi()?.stop();
+    } catch (e) {
+      console.warn('[VapiStore] stopCall error:', e);
+    }
     set({
       isConnected: false,
       isConnecting: false,
+      agentState: 'IDLE',
       partialUserTranscript: '',
       partialAgentTranscript: '',
     });
@@ -1104,6 +1316,35 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       vapi.setMuted(!currentState);
     }
     set({ isMuted: !currentState });
+  },
+
+  toggleLanguage: () => {
+    const next = !get().isTamilMode;
+    set({ isTamilMode: next });
+    const vapi = getVapi();
+    if (vapi && get().isConnected) {
+      try {
+        (vapi as any).send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: next
+              ? '[Language Preference] The customer switched to Tamil. Please respond in conversational Tamil / Tanglish with warm hospitality.'
+              : '[Language Preference] The customer switched to English. Please respond in English.',
+          },
+        });
+      } catch {}
+    }
+  },
+
+  stopSpeaking: () => {
+    const vapi = getVapi();
+    if (vapi?.send) {
+      try {
+        (vapi as any).send({ type: 'control', control: 'stop-speaking' });
+      } catch {}
+    }
+    set({ agentState: 'LISTENING', partialAgentTranscript: '' });
   },
 
   clearMessages: () => {
@@ -1183,7 +1424,7 @@ export const useVapiStore = create<VapiState>((set, get) => ({
     listenersSetup = true;
 
     vapi.on('call-start', () => {
-      set({ isConnected: true, isConnecting: false });
+      set({ isConnected: true, isConnecting: false, agentState: 'LISTENING' });
 
       // Warm the menu cache in the background so the first food request does
       // not stall on a cold network fetch.
@@ -1230,9 +1471,18 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       set({
         isConnected: false,
         isConnecting: false,
+        agentState: 'IDLE',
         partialUserTranscript: '',
         partialAgentTranscript: '',
       });
+    });
+
+    vapi.on('speech-start', () => {
+      set({ agentState: 'SPEAKING' });
+    });
+
+    vapi.on('speech-end', () => {
+      set({ agentState: 'LISTENING' });
     });
 
     vapi.on('message', async (message: any) => {
@@ -1455,7 +1705,7 @@ export const useVapiStore = create<VapiState>((set, get) => ({
 
     vapi.on('error', (e: any) => {
       console.error('[VapiStore] Vapi error:', e);
-      set({ isConnected: false, isConnecting: false });
+      set({ isConnected: false, isConnecting: false, agentState: 'ERROR' });
     });
   },
 }));
