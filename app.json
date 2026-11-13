@@ -2,7 +2,7 @@
   "expo": {
     "name": "MaitreD",
     "slug": "maitred-app",
-    "owner": "gayatriks-team",
+    "owner": "gayatrik",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -100,10 +100,13 @@
     },
     "extra": {
       "router": {
-        "root": "src/app"
+        "root": "src/app",
+        "asyncRoutes": {
+          "web": true
+        }
       },
       "eas": {
-        "projectId": "927f995e-93f1-4348-83d6-2b4a4753993c"
+        "projectId": "798b128a-6b30-4f91-a308-969031c13b71"
       }
     }
   }
