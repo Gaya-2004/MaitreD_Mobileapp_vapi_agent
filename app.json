@@ -8,6 +8,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "maitred",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
     "ios": {
       "icon": "./assets/images/icon.png",
       "config": {
@@ -18,7 +19,9 @@
           "voip"
         ],
         "NSMicrophoneUsageDescription": "Allow MaitreD to access your microphone for the voice assistant.",
-        "NSCameraUsageDescription": "Allow MaitreD to access your camera to scan table QR codes."
+        "NSCameraUsageDescription": "Allow MaitreD to access your camera to scan table QR codes.",
+        "NSLocationWhenInUseUsageDescription": "Allow MaitreD to use your location to find nearby addresses.",
+        "NSPhotoLibraryUsageDescription": "Allow MaitreD to access your photos for profile pictures."
       },
       "bundleIdentifier": "com.maitred.app"
     },
@@ -81,10 +84,12 @@
         {
           "android": {
             "usesCleartextTraffic": true,
-            "minSdkVersion": 24
+            "minSdkVersion": 24,
+            "newArchEnabled": false
           },
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "newArchEnabled": false
           }
         }
       ],
