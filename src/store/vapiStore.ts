@@ -210,9 +210,9 @@ async function fetchAgentDataNetwork(
 
   if (!restaurantState.selectedOutlet) {
     restaurantState.setSelectedOutlet({
-      id: 'mugalivakkam',
+      id: '1',
       restaurant_id: 1,
-      name: 'MaitreD — Mugalivakkam',
+      name: 'MaitreD Restaurant',
     });
   }
 
@@ -302,9 +302,9 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
 
   if (!selectedOutlet) {
     restaurantState.setSelectedOutlet({
-      id: 'mugalivakkam',
+      id: '1',
       restaurant_id: 1,
-      name: 'MaitreD — Mugalivakkam',
+      name: 'MaitreD Restaurant',
     });
   }
 
@@ -597,9 +597,9 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
 
         if (!selectedOutlet) {
           restaurantState.setSelectedOutlet({
-            id: 'mugalivakkam',
+            id: '1',
             restaurant_id: 1,
-            name: 'MaitreD — Mugalivakkam',
+            name: 'MaitreD Restaurant',
           });
         }
 
@@ -1271,16 +1271,35 @@ export const useVapiStore = create<VapiState>((set, get) => ({
     const cart = useCartStore.getState();
     const cartCount = cart.getItemCount();
 
-    let dynamicFirstMessage = "Hello! I'm MaitreD, your AI dining assistant. How may I help you today?";
+    let dynamicFirstMessage = "Hello! Welcome to MaitreD Restaurant. How can I assist you today? Would you like to see the menu, place an order, or need help with something else?";
     if (hasHistory) {
-      dynamicFirstMessage = "I'm back. Let's continue.";
+      dynamicFirstMessage = "Welcome back to MaitreD Restaurant. Let's continue.";
     } else if (cartCount > 0) {
-      dynamicFirstMessage = `Welcome to MaitreD! You have ${cartCount} item${cartCount > 1 ? 's' : ''} in your cart. Would you like to view your cart, add more dishes, or place your order?`;
+      dynamicFirstMessage = `Welcome to MaitreD Restaurant! You have ${cartCount} item${cartCount > 1 ? 's' : ''} in your cart. Would you like to view your cart, add more dishes, or place your order?`;
     }
 
     const overrides = { 
       firstMessage: dynamicFirstMessage, 
       maxDurationSeconds: 3600,
+      assistantOverrides: {
+        firstMessage: dynamicFirstMessage,
+        model: {
+          messages: [
+            {
+              role: 'system',
+              content: `You are MaitreD, the intelligent AI dining and ordering assistant for MaitreD Restaurant.
+You represent MaitreD Restaurant exclusively. Never mention "Data Udipi", "Udupi", or "Mugalivakkam" under any circumstance. Always refer to the restaurant as "MaitreD Restaurant".
+
+Key Responsibilities:
+1. Welcome guests to MaitreD Restaurant warmly. You are MaitreD.
+2. Recommend delicious vegetarian and non-vegetarian dishes from the MaitreD menu, search for items by name or category.
+3. Help customers place Dine-In, Takeaway, or Delivery orders. Add items to their cart with specified quantities and custom preferences.
+4. Guide customers to screens (Menu, Cart, Orders, Catering, Profile) upon request.
+5. Tone: Warm, courteous, concise, and knowledgeable. Always refer to the brand as MaitreD Restaurant.`,
+            },
+          ],
+        },
+      },
     };
 
     try {
@@ -1437,11 +1456,15 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       // Inject current app context on call start
       try {
         const initialContext = getMobileAgentContext();
+        const cleanOutletName = (initialContext.restaurant.selectedOutletName || 'MaitreD Restaurant')
+          .replace(/Mugalivakkam/gi, '')
+          .replace(/[—–-]\s*$/, '')
+          .trim() || 'MaitreD Restaurant';
         (vapi as any).send({
           type: 'add-message',
           message: {
             role: 'system',
-            content: `[Current App Context] Order Type: ${initialContext.cart.orderType}. Outlet: ${initialContext.restaurant.selectedOutletName || 'None'}. Cart Items: ${initialContext.cart.itemCount}. If customer asks to switch to takeaway, dine in, or delivery, you can use set_order_type ("Take Away", "Dine In", "Delivery").`
+            content: `[Current App Context] Restaurant: MaitreD Restaurant. Order Type: ${initialContext.cart.orderType}. Outlet: ${cleanOutletName}. Cart Items: ${initialContext.cart.itemCount}. If customer asks to switch to takeaway, dine in, or delivery, you can use set_order_type ("Take Away", "Dine In", "Delivery"). You represent MaitreD Restaurant.`
           }
         });
       } catch (e) {

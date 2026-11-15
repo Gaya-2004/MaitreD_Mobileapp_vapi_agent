@@ -21,11 +21,11 @@ export interface OutletLocation {
 }
 
 export const KNOWN_OUTLET_LOCATIONS: Record<string | number, OutletLocation> = {
-  1: { name: 'MaitreD — Mugalivakkam', latitude: 13.0210, longitude: 80.1614, restaurant_id: 1 },
+  1: { name: 'MaitreD Restaurant', latitude: 13.0210, longitude: 80.1614, restaurant_id: 1 },
   2: { name: 'MaitreD — MGR Nagar', latitude: 13.0350, longitude: 80.1970, restaurant_id: 2 },
   3: { name: 'MaitreD - Banglore', latitude: 12.8399, longitude: 77.6770, restaurant_id: 25 },
   25: { name: 'MaitreD - Banglore', latitude: 12.8399, longitude: 77.6770, restaurant_id: 25 },
-  mugalivakkam: { name: 'MaitreD — Mugalivakkam', latitude: 13.0210, longitude: 80.1614, restaurant_id: 1 },
+  mugalivakkam: { name: 'MaitreD Restaurant', latitude: 13.0210, longitude: 80.1614, restaurant_id: 1 },
   mgrnagar: { name: 'MaitreD — MGR Nagar', latitude: 13.0350, longitude: 80.1970, restaurant_id: 2 },
   banglore: { name: 'MaitreD - Banglore', latitude: 12.8399, longitude: 77.6770, restaurant_id: 25 },
 };

@@ -9,8 +9,8 @@ const FALLBACK_OUTLETS = [
   {
     id: "1",
     restaurant_id: 1,
-    name: "MaitreD — Mugalivakkam",
-    address: "Mount-Poonamallee Road, Mugalivakkam, Chennai 600125",
+    name: "MaitreD Restaurant",
+    address: "Mount-Poonamallee Road, Chennai 600125",
     lat: 13.0210,
     lng: 80.1614,
     open: true,
@@ -63,8 +63,16 @@ export default function OutletSelectorScreen() {
             return {
               id: r.id.toString(),
               restaurant_id: r.id,
-              name: r.name,
-              address: r.address || '',
+              name: (r.name || 'MaitreD Restaurant')
+                .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
+                .replace(/Grand\s*Udipi/gi, 'MaitreD')
+                .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
+                .replace(/Mugalivakkam/gi, '')
+                .trim() || 'MaitreD Restaurant',
+              address: (r.address || '')
+                .replace(/Mugalivakkam,?\s*/gi, '')
+                .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
+                .trim(),
               lat: (rLat && !isNaN(rLat)) ? rLat : (fallback?.lat ?? 13.0210),
               lng: (rLng && !isNaN(rLng)) ? rLng : (fallback?.lng ?? 80.1614),
               open: fallback?.open ?? true,

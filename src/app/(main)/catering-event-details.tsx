@@ -35,7 +35,7 @@ export default function CateringEventDetails() {
     if (outletRestId && (!restaurantId || restaurantId !== Number(outletRestId))) {
       setRestaurant(Number(outletRestId), selectedOutlet?.name || null);
     } else if (!restaurantId) {
-      setRestaurant(1, 'MaitreD — Mugalivakkam');
+      setRestaurant(1, 'MaitreD Restaurant');
     }
   }, [selectedOutlet, restaurantId, setRestaurant]);
 

@@ -62,9 +62,14 @@ export default function InvoiceScreen() {
       .replace(/\bUdupi\b/gi, 'MaitreD');
   };
 
-  const rawBranchName = selectedOutlet?.name || (params.restaurantName as string) || 'MaitreD — Mugalivakkam';
+  const rawBranchName = (selectedOutlet?.name || (params.restaurantName as string) || 'MaitreD Restaurant')
+    .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
+    .replace(/Mugalivakkam/gi, '')
+    .trim() || 'MaitreD Restaurant';
   const branchName = sanitizeBrand(rawBranchName);
-  const rawBranchAddress = selectedOutlet?.address || 'Mount-Poonamallee Road, Mugalivakkam, Chennai 600125';
+  const rawBranchAddress = (selectedOutlet?.address || 'Mount-Poonamallee Road, Chennai 600125')
+    .replace(/Mugalivakkam,?\s*/gi, '')
+    .trim();
   const branchAddress = sanitizeBrand(rawBranchAddress);
   const [orderData, setOrderData] = useState<any>(null);
   const [loadingOrder, setLoadingOrder] = useState(Boolean(params.dbOrderId));

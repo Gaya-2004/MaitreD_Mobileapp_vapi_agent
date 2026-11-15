@@ -72,7 +72,12 @@ export function getMobileAgentContext(): MobileAgentContext {
     },
     restaurant: {
       selectedOutletId: restaurant.selectedOutlet?.restaurant_id ?? null,
-      selectedOutletName: restaurant.selectedOutlet?.name ?? null,
+      selectedOutletName: (restaurant.selectedOutlet?.name || 'MaitreD Restaurant')
+        .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
+        .replace(/Grand\s*Udipi/gi, 'MaitreD')
+        .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
+        .replace(/Mugalivakkam/gi, '')
+        .trim() || 'MaitreD Restaurant',
     },
     cart: {
       orderType: cart.orderType,

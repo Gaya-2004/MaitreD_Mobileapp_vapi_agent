@@ -107,7 +107,12 @@ export default function OrderSuccessScreen() {
     const saveOrderToHistory = async () => {
       try {
         const restId = selectedOutlet?.restaurant_id ? Number(selectedOutlet.restaurant_id) : 1;
-        const restName = (selectedOutlet?.name || 'MaitreD — Mugalivakkam').replace(/Data\s*Udi?p+i/gi, 'MaitreD').replace(/Grand\s*Udipi/gi, 'MaitreD');
+        const restName = (selectedOutlet?.name || 'MaitreD Restaurant')
+          .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
+          .replace(/Grand\s*Udipi/gi, 'MaitreD')
+          .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
+          .replace(/Mugalivakkam/gi, '')
+          .trim() || 'MaitreD Restaurant';
         let storedOrders = null;
         try {
           if (Platform.OS === 'web') {
