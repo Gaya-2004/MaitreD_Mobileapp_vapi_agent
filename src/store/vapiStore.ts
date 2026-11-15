@@ -17,19 +17,18 @@
  *   - No duplicate bubbles
  */
 
-import { Alert, NativeModules, Platform, PermissionsAndroid } from 'react-native';
+import { Alert, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 import { create } from 'zustand';
-import { executeSingleAction, setActiveRouter, getActiveRouter, navigateScreen, UIAction } from '../utils/mobileAgentActionDispatcher';
-import { resolveRoute } from '../utils/agentRegistry';
-import { getMobileAgentContext } from '../utils/agentContext';
-import { buildMenuKeyterms, matchMenuItem, normalizeName } from '../utils/menuMatching';
 import { API_BASE_URL, getFullImageUrl } from '../constants/api';
-import { useAuthStore } from '../store/useAuthStore';
-import { useRestaurantStore } from '../store/useRestaurantStore';
-import { useLiveOrderStore } from '../store/useLiveOrderStore';
-import { useAddressStore } from '../store/useAddressStore';
-import { useOrderStore } from '../store/useOrderStore';
 import { orderApi } from '../services/apiService';
+import { useAddressStore } from '../store/useAddressStore';
+import { useAuthStore } from '../store/useAuthStore';
+import { useLiveOrderStore } from '../store/useLiveOrderStore';
+import { useOrderStore } from '../store/useOrderStore';
+import { useRestaurantStore } from '../store/useRestaurantStore';
+import { getMobileAgentContext } from '../utils/agentContext';
+import { resolveRoute } from '../utils/agentRegistry';
+import { executeSingleAction, getActiveRouter, navigateScreen, setActiveRouter, UIAction } from '../utils/mobileAgentActionDispatcher';
 import { useCartStore } from './useCartStore';
 
 // Cache executed toolCallIds to avoid duplicate execution
@@ -205,8 +204,8 @@ async function fetchAgentDataNetwork(
   let restaurantId = restaurantIdArg || restaurantState.selectedOutlet?.restaurant_id
     ? Number(restaurantIdArg || restaurantState.selectedOutlet?.restaurant_id)
     : (restaurantState.selectedOutlet?.id && !isNaN(Number(restaurantState.selectedOutlet.id))
-        ? Number(restaurantState.selectedOutlet.id)
-        : 1);
+      ? Number(restaurantState.selectedOutlet.id)
+      : 1);
 
   if (!restaurantState.selectedOutlet) {
     restaurantState.setSelectedOutlet({
@@ -296,7 +295,7 @@ async function fetchAgentData(toolName: string, args: Record<string, any>): Prom
 
 // ─── Robust Cart Resolver Helper ─────────────────────────────────────────────
 
-async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; code?: string; message: string; data?: any; [key: string]: any }> {
+async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; code?: string; message: string; data?: any;[key: string]: any }> {
   const restaurantState = useRestaurantStore.getState();
   const selectedOutlet = restaurantState.selectedOutlet;
 
@@ -394,7 +393,7 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
         if (globalData.menu_items && Array.isArray(globalData.menu_items) && globalData.menu_items.length > 0) {
           candidates = globalData.menu_items;
         }
-      } catch {}
+      } catch { }
     }
   }
 
@@ -574,8 +573,8 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
           fnArgs.order_type ||
           fnArgs.orderType ||
           (fnName === 'switch_to_takeaway' || fnName === 'takeaway' ? 'Take Away' :
-           fnName === 'switch_to_dine_in' || fnName === 'dine_in' ? 'Dine In' :
-           fnName === 'switch_to_delivery' || fnName === 'delivery' ? 'Delivery' : undefined);
+            fnName === 'switch_to_dine_in' || fnName === 'dine_in' ? 'Dine In' :
+              fnName === 'switch_to_delivery' || fnName === 'delivery' ? 'Delivery' : undefined);
 
         const uiAction: UIAction = {
           action: 'set_order_type',
@@ -591,8 +590,8 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       case 'get_menu': {
         const restaurantState = useRestaurantStore.getState();
         const selectedOutlet = restaurantState.selectedOutlet;
-        const restaurantId = selectedOutlet?.restaurant_id 
-          ? Number(selectedOutlet.restaurant_id) 
+        const restaurantId = selectedOutlet?.restaurant_id
+          ? Number(selectedOutlet.restaurant_id)
           : (selectedOutlet?.id && !isNaN(Number(selectedOutlet.id)) ? Number(selectedOutlet.id) : 1);
 
         if (!selectedOutlet) {
@@ -619,7 +618,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
           action: 'navigate',
           route: '/menu',
           payload: { params: { search: isShowAll ? '' : (rawQuery || rawCategory || '') } }
-        }).catch(() => {});
+        }).catch(() => { });
 
         const normalizedArgs: Record<string, any> = {};
         if (rawQuery && !isShowAll) normalizedArgs.query = rawQuery;
@@ -837,7 +836,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       case 'open_profile':
       case 'profile':
       case 'my_profile': {
-        executeSingleAction({ action: 'navigate', route: '/profile' }).catch(() => {});
+        executeSingleAction({ action: 'navigate', route: '/profile' }).catch(() => { });
         const auth = useAuthStore.getState();
         if (!auth.isAuthenticated || !auth.customerId) {
           return { toolCallId, result: JSON.stringify({ success: true, message: 'Opened profile screen. Please log in to view full profile details.' }) };
@@ -853,7 +852,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       case 'rewards':
       case 'loyalty_points':
       case 'my_rewards': {
-        executeSingleAction({ action: 'navigate', route: '/rewards' }).catch(() => {});
+        executeSingleAction({ action: 'navigate', route: '/rewards' }).catch(() => { });
         const auth = useAuthStore.getState();
         if (!auth.isAuthenticated || !auth.customerId) {
           return { toolCallId, result: JSON.stringify({ success: true, message: 'Opened loyalty points and rewards screen.' }) };
@@ -869,7 +868,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       case 'get_addresses':
       case 'my_addresses':
       case 'addresses': {
-        executeSingleAction({ action: 'open_addresses' }).catch(() => {});
+        executeSingleAction({ action: 'open_addresses' }).catch(() => { });
         const addresses = useAddressStore.getState().addresses;
         return {
           toolCallId,
@@ -890,9 +889,9 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         const addresses = addressStore.addresses;
         let matched = addresses.find(a => String(a.id) === query);
         if (!matched && query) {
-          matched = addresses.find(a => 
-            a.type?.toLowerCase().includes(query) || 
-            a.address?.toLowerCase().includes(query) || 
+          matched = addresses.find(a =>
+            a.type?.toLowerCase().includes(query) ||
+            a.address?.toLowerCase().includes(query) ||
             a.full_address?.toLowerCase().includes(query)
           );
         }
@@ -911,7 +910,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
             })
           };
         }
-        executeSingleAction({ action: 'open_addresses' }).catch(() => {});
+        executeSingleAction({ action: 'open_addresses' }).catch(() => { });
         return {
           toolCallId,
           result: JSON.stringify({
@@ -927,7 +926,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       case 'open_orders':
       case 'orders':
       case 'my_orders': {
-        executeSingleAction({ action: 'navigate', route: '/(order)/orders' }).catch(() => {});
+        executeSingleAction({ action: 'navigate', route: '/(order)/orders' }).catch(() => { });
         const auth = useAuthStore.getState();
         const restaurant = useRestaurantStore.getState();
         if (!auth.isAuthenticated || !auth.phone) {
@@ -982,9 +981,9 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
 
         // Also navigate to tracking screen so the UI shows it
         if (orderId) {
-          executeSingleAction({ action: 'open_tracking', order_id: String(orderId) }).catch(() => {});
+          executeSingleAction({ action: 'open_tracking', order_id: String(orderId) }).catch(() => { });
         } else {
-          executeSingleAction({ action: 'open_tracking' }).catch(() => {});
+          executeSingleAction({ action: 'open_tracking' }).catch(() => { });
         }
 
         if (!auth.isAuthenticated) {
@@ -1068,7 +1067,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         const restaurantState = useRestaurantStore.getState();
         const authState = useAuthStore.getState();
         const addressState = useAddressStore.getState();
-        const restId = restaurantState.selectedOutlet?.restaurant_id 
+        const restId = restaurantState.selectedOutlet?.restaurant_id
           ? Number(restaurantState.selectedOutlet.restaurant_id)
           : (restaurantState.selectedOutlet?.id && !isNaN(Number(restaurantState.selectedOutlet.id)) ? Number(restaurantState.selectedOutlet.id) : 1);
 
@@ -1278,28 +1277,9 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       dynamicFirstMessage = `Welcome to MaitreD Restaurant! You have ${cartCount} item${cartCount > 1 ? 's' : ''} in your cart. Would you like to view your cart, add more dishes, or place your order?`;
     }
 
-    const overrides = { 
-      firstMessage: dynamicFirstMessage, 
+    const overrides: any = {
+      firstMessage: dynamicFirstMessage,
       maxDurationSeconds: 3600,
-      assistantOverrides: {
-        firstMessage: dynamicFirstMessage,
-        model: {
-          messages: [
-            {
-              role: 'system',
-              content: `You are MaitreD, the intelligent AI dining and ordering assistant for MaitreD Restaurant.
-You represent MaitreD Restaurant exclusively. Never mention "Data Udipi", "Udupi", or "Mugalivakkam" under any circumstance. Always refer to the restaurant as "MaitreD Restaurant".
-
-Key Responsibilities:
-1. Welcome guests to MaitreD Restaurant warmly. You are MaitreD.
-2. Recommend delicious vegetarian and non-vegetarian dishes from the MaitreD menu, search for items by name or category.
-3. Help customers place Dine-In, Takeaway, or Delivery orders. Add items to their cart with specified quantities and custom preferences.
-4. Guide customers to screens (Menu, Cart, Orders, Catering, Profile) upon request.
-5. Tone: Warm, courteous, concise, and knowledgeable. Always refer to the brand as MaitreD Restaurant.`,
-            },
-          ],
-        },
-      },
     };
 
     try {
@@ -1352,7 +1332,7 @@ Key Responsibilities:
               : '[Language Preference] The customer switched to English. Please respond in English.',
           },
         });
-      } catch {}
+      } catch { }
     }
   },
 
@@ -1361,7 +1341,7 @@ Key Responsibilities:
     if (vapi?.send) {
       try {
         (vapi as any).send({ type: 'control', control: 'stop-speaking' });
-      } catch {}
+      } catch { }
     }
     set({ agentState: 'LISTENING', partialAgentTranscript: '' });
   },
@@ -1450,7 +1430,7 @@ Key Responsibilities:
       const outletId = useRestaurantStore.getState().selectedOutlet?.restaurant_id;
       const hasLocalMenu = (useRestaurantStore.getState().menuItems || []).length > 0;
       if (outletId && !hasLocalMenu) {
-        fetchAgentData('menu_search', {}).catch(() => {});
+        fetchAgentData('menu_search', {}).catch(() => { });
       }
 
       // Inject current app context on call start
@@ -1531,7 +1511,7 @@ Key Responsibilities:
                   content: `[Confirmed System Action] ${parsed.message || result.result}`,
                 },
               });
-            } catch {}
+            } catch { }
 
             // 2. Also send tool-call result message
             (vapi as any).send({
@@ -1599,7 +1579,7 @@ Key Responsibilities:
                     content: '[System Update] The user switched order mode to Take Away. App UI has been updated to Takeaway.'
                   }
                 });
-              } catch {}
+              } catch { }
             }
           } else if (
             /\b(switch|change|set|make|select|turn|go|put)\b.*\b(dine in|dine-in|dinein|table)\b/i.test(lower) ||
@@ -1616,7 +1596,7 @@ Key Responsibilities:
                     content: '[System Update] The user switched order mode to Dine In. App UI has been updated to Dine-in.'
                   }
                 });
-              } catch {}
+              } catch { }
             }
           } else if (
             /\b(switch|change|set|make|select|turn|go|put)\b.*\b(delivery|deliver|home delivery)\b/i.test(lower) ||
@@ -1633,7 +1613,7 @@ Key Responsibilities:
                     content: '[System Update] The user switched order mode to Delivery. App UI has been updated to Delivery.'
                   }
                 });
-              } catch {}
+              } catch { }
             }
           }
           // 2. Menu Navigation ("show all the menus", "show menu", "open menu", "view menu")
