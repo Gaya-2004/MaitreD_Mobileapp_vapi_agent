@@ -1,17 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Platform, StatusBar, ScrollView, BackHandler, Linking, Alert, ActivityIndicator } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { orderApi } from '../../services/apiService';
-import { getFullImageUrl } from '../../constants/api';
-import { useRestaurantStore, useLiveOrderStore } from '../../store';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from '../(order)/_MapComponents';
-import MapViewDirections from 'react-native-maps-directions';
 import * as Location from 'expo-location';
-import { formatTime } from '../../utils/dateUtils';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, BackHandler, Image, Linking, Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import MapViewDirections from 'react-native-maps-directions';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from '../(order)/_MapComponents';
+import { getFullImageUrl } from '../../constants/api';
 import { LIGHT_MAP_STYLE } from '../../constants/mapStyle';
+import { orderApi } from '../../services/apiService';
+import { useLiveOrderStore, useRestaurantStore } from '../../store';
+import { formatTime } from '../../utils/dateUtils';
 import { resolveOutletLocation } from '../../utils/deliveryArea';
 
 const GOOGLE_MAPS_APIKEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
@@ -37,7 +37,7 @@ export default function OrderSuccessScreen() {
 
   const [orderDetails, setOrderDetails] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null);
+  const [userLocation, setUserLocation] = useState<{ latitude: number, longitude: number } | null>(null);
   const [cancelling, setCancelling] = useState(false);
 
   const handleCancelTakeawayOrder = () => {
@@ -126,7 +126,7 @@ export default function OrderSuccessScreen() {
             if (typeof localStorage !== 'undefined') {
               storedOrders = localStorage.getItem('userOrders');
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         if (!storedOrders) {
           storedOrders = (globalThis as any).userOrders || null;
@@ -172,7 +172,7 @@ export default function OrderSuccessScreen() {
 
         ordersList.unshift(newOrderRecord);
         const listStr = JSON.stringify(ordersList);
-        
+
         let saved = false;
         try {
           await AsyncStorage.setItem('userOrders', listStr);
@@ -184,7 +184,7 @@ export default function OrderSuccessScreen() {
               localStorage.setItem('userOrders', listStr);
               saved = true;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
         (globalThis as any).userOrders = listStr;
       } catch (err) {
@@ -283,11 +283,11 @@ export default function OrderSuccessScreen() {
           description: i.description || 'Freshly made',
           price: i.price,
           quantity: i.quantity,
-          image_url: i.image_url 
+          image_url: i.image_url
             ? getFullImageUrl(i.image_url, i.name || i.title || 'Item')
             : getFullImageUrl(i.image, i.name || i.title || 'Item')
         }));
-      } catch (e) {}
+      } catch (e) { }
     }
     return [];
   })();
@@ -311,12 +311,12 @@ export default function OrderSuccessScreen() {
   if (status === 'PREPARING') progressStep = 2;
   else if (status === 'ALMOST_READY') { progressStep = 3; etaSubText = "Ready to pickup (~3 min) • Packing in progress"; }
   else if (status === 'READY') { progressStep = 4; etaSubText = "Ready for pickup at counter"; }
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#DF9B34" />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
-        
+
         {/* Header Block */}
         <View style={[styles.headerBlock, { paddingTop: insets.top + 20 }]}>
           <View style={styles.checkCircle}>
@@ -337,7 +337,7 @@ export default function OrderSuccessScreen() {
               </View>
             </View>
             <Text style={styles.etaTime}>{readyTimeText} {etaTime}</Text>
-            
+
             <View style={styles.progressRow}>
               <View style={[styles.progressDot, progressStep >= 1 && styles.activeDot]} />
               <View style={[styles.progressLine, progressStep >= 2 && styles.activeLine]} />
@@ -400,15 +400,15 @@ export default function OrderSuccessScreen() {
                     longitudeDelta: 0.05,
                   }}
                 >
-                  <Marker 
-                    coordinate={{ latitude: restaurantLoc.latitude, longitude: restaurantLoc.longitude }} 
+                  <Marker
+                    coordinate={{ latitude: restaurantLoc.latitude, longitude: restaurantLoc.longitude }}
                     title={restaurantLoc.name || "MaitreD"}
                     description="Restaurant Location"
                   >
                     <Ionicons name="restaurant" size={30} color="#DF9B34" />
                   </Marker>
-                  <Marker 
-                    coordinate={userLoc} 
+                  <Marker
+                    coordinate={userLoc}
                     title="You"
                     description="Your Location"
                   >
@@ -423,7 +423,7 @@ export default function OrderSuccessScreen() {
                       strokeColor="#00a01d"
                     />
                   ) : (
-                    <Polyline 
+                    <Polyline
                       coordinates={[
                         userLoc,
                         { latitude: restaurantLoc.latitude, longitude: restaurantLoc.longitude }
@@ -434,7 +434,7 @@ export default function OrderSuccessScreen() {
                     />
                   )}
                 </MapView>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.mapOverlayPill}
                   onPress={() => {
                     Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${restaurantLoc.latitude},${restaurantLoc.longitude}`);
