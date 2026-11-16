@@ -1,9 +1,9 @@
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { restaurantApi } from '../../services/apiService';
+import { Ionicons } from '@expo/vector-icons';
 import { useRestaurantStore } from '../../store';
+import { restaurantApi } from '../../services/apiService';
 
 const FALLBACK_OUTLETS = [
   {
@@ -52,27 +52,19 @@ export default function OutletSelectorScreen() {
         const data = await restaurantApi.getRestaurants();
         if (Array.isArray(data) && data.length > 0) {
           const apiOutlets = data.map((r: any) => {
-            const fallback = FALLBACK_OUTLETS.find(f =>
-              f.restaurant_id === r.id ||
+            const fallback = FALLBACK_OUTLETS.find(f => 
+              f.restaurant_id === r.id || 
               r.name.toLowerCase().includes(f.name.split(' — ')[1]?.toLowerCase() || f.name.split('- ')[1]?.toLowerCase() || 'unknown')
             );
-
+            
             const rLat = r.latitude != null ? Number(r.latitude) : null;
             const rLng = r.longitude != null ? Number(r.longitude) : null;
 
             return {
               id: r.id.toString(),
               restaurant_id: r.id,
-              name: (r.name || 'MaitreD Restaurant')
-                .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
-                .replace(/Grand\s*Udipi/gi, 'MaitreD')
-                .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
-                .replace(/Mugalivakkam/gi, '')
-                .trim() || 'MaitreD Restaurant',
-              address: (r.address || '')
-                .replace(/Mugalivakkam,?\s*/gi, '')
-                .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
-                .trim(),
+              name: r.name,
+              address: r.address || '',
               lat: (rLat && !isNaN(rLat)) ? rLat : (fallback?.lat ?? 13.0210),
               lng: (rLng && !isNaN(rLng)) ? rLng : (fallback?.lng ?? 80.1614),
               open: fallback?.open ?? true,
@@ -115,8 +107,8 @@ export default function OutletSelectorScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.topRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
+          <TouchableOpacity 
+            style={styles.backBtn} 
             onPress={() => router.canGoBack() ? router.back() : router.replace('/home')}
           >
             <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
@@ -132,8 +124,8 @@ export default function OutletSelectorScreen() {
         {outlets.map((o) => {
           const isSelected = o.id === selectedId;
           return (
-            <TouchableOpacity
-              key={o.id}
+            <TouchableOpacity 
+              key={o.id} 
               style={[styles.card, isSelected && styles.cardSelected]}
               onPress={() => handleSelect(o.id)}
               activeOpacity={0.8}
@@ -158,14 +150,14 @@ export default function OutletSelectorScreen() {
         })}
       </ScrollView>
 
-      <TouchableOpacity
+      <TouchableOpacity 
         style={[styles.confirmBtn, !selectedId && styles.confirmBtnDisabled]}
         disabled={!selectedId}
         onPress={handleConfirm}
       >
         <Text style={styles.confirmBtnText}>
-          {selectedId
-            ? `Continue with ${outlets.find(o => o.id === selectedId)?.name.replace(/^(?:Data Udipi|MaitreD)\s*[-—]\s*/i, '')}`
+          {selectedId 
+            ? `Continue with ${outlets.find(o => o.id === selectedId)?.name.replace(/^(?:Data Udipi|MaitreD)\s*[-—]\s*/i, '')}` 
             : 'Select a branch to continue'}
         </Text>
       </TouchableOpacity>

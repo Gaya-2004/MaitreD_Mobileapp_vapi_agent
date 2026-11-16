@@ -9,6 +9,8 @@ import { useCateringSessionStore } from '../../store/useCateringSessionStore';
 import { useRestaurantStore } from '../../store/useRestaurantStore';
 import { useAddressStore } from '../../store/useAddressStore';
 import { API_BASE_URL } from '../../constants/api';
+import { GOOGLE_MAPS_API_KEY } from '../../constants/maps';
+import { safeBack } from '../../utils/navigation';
 
 export default function CateringEventDetails() {
   const router = useRouter();
@@ -39,7 +41,7 @@ export default function CateringEventDetails() {
     }
   }, [selectedOutlet, restaurantId, setRestaurant]);
 
-  const GOOGLE_MAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
+  const GOOGLE_MAPS_KEY = GOOGLE_MAPS_API_KEY;
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Google Places Autocomplete state
@@ -464,12 +466,12 @@ export default function CateringEventDetails() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+        <TouchableOpacity style={styles.backButton} onPress={() => safeBack(router, '/(main)/bulk-catering')}>
           <Ionicons name="chevron-back" size={24} color="#000" />
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>

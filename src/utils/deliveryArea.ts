@@ -1,7 +1,9 @@
-export const MUGALIVAKKAM_LOCATION = {
+export const MAIN_OUTLET_LOCATION = {
   latitude: 13.0210,
   longitude: 80.1614,
 };
+
+export const MUGALIVAKKAM_LOCATION = MAIN_OUTLET_LOCATION;
 
 export const MGR_NAGAR_LOCATION = {
   latitude: 13.0350,
@@ -68,7 +70,7 @@ export function resolveOutletLocation(outlet?: any): OutletLocation {
 export function getDistanceInKm(
   latitude: number,
   longitude: number,
-  origin: { latitude: number; longitude: number } = MUGALIVAKKAM_LOCATION,
+  origin: { latitude: number; longitude: number } = MAIN_OUTLET_LOCATION,
 ): number {
   if (latitude == null || longitude == null || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return Infinity;

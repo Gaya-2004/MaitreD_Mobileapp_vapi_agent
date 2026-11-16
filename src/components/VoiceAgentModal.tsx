@@ -361,6 +361,13 @@ export default function VoiceAgentModal() {
             {!isDragging && !routeContext.fabCompact && (
               <View style={styles.fabTextWrapper}>
                 <View style={styles.fabTitleRow}>
+                  {routeContext.fabTitle === 'Talk to Agent' && (
+                    <Image
+                      source={require('../../assets/images/talk_to_agent_headset.png')}
+                      style={{ width: 13, height: 12, marginRight: 4, tintColor: '#1A1208' }}
+                      resizeMode="contain"
+                    />
+                  )}
                   <Text style={styles.fabPillTitle}>{routeContext.fabTitle}</Text>
                   {isForYouScreen && (
                     <View style={styles.fabAiMiniBadge}>

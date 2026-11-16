@@ -311,12 +311,7 @@ export default function OrderDetailsScreen() {
     }
 
     const tableStr = order?.table_number ? `Table ${order.table_number}` : 'Table T-01';
-    const outletName = (selectedOutlet?.name || 'MaitreD Restaurant')
-      .replace(/Data\s*Udi?p+i/gi, 'MaitreD')
-      .replace(/Grand\s*Udipi/gi, 'MaitreD')
-      .replace(/\s*[—–-]\s*Mugalivakkam/gi, '')
-      .replace(/Mugalivakkam/gi, '')
-      .trim() || 'MaitreD Restaurant';
+    const outletName = (selectedOutlet?.name || 'MaitreD Restaurant').replace(/Data\s*Udi?p+i/gi, 'MaitreD').replace(/Grand\s*Udipi/gi, 'MaitreD').replace(/Mugalivakkam/gi, '').replace(/[—–-]\s*$/, '').trim();
     return `${tableStr}, ${outletName}`;
   }, [order, isDelivery, selectedOutlet]);
 

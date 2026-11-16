@@ -2,41 +2,50 @@ import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 const getApiUrl = () => {
-  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim() || process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
-
-  // If running on web in local development browser (localhost / 127.0.0.1), use local backend on 8001
+  // 1. If running on web in a browser, connect to backend on same host (e.g. http://localhost:8001)
   if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
     const hostname = window.location.hostname;
     if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return 'http://localhost:8001';
+    }
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(hostname)) {
       return `http://${hostname}:8001`;
     }
+    return `http://${hostname}:8001`;
   }
 
-  // If a deployed / remote URL is provided (e.g. https://... or custom domain), always respect it for native apps / production
-  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim() || process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+
+  // 2. If a deployed / tunnel URL is provided (e.g. https://... or ngrok or loca.lt), always respect it
+  if (envUrl && (envUrl.startsWith('https://') || envUrl.includes('.ngrok') || envUrl.includes('.loca.lt'))) {
     return envUrl.replace(/\/+$/, '');
   }
 
-  // Auto-detect host IP when running via Metro dev server (Expo Go / Dev Client on physical device)
+  // 3. Auto-detect host IP when running via Metro dev server (Expo Go / Dev Client on physical device)
   const hostUri = Constants.expoConfig?.hostUri;
-  if (hostUri) {
+  if (__DEV__ && hostUri) {
     const host = hostUri.split(':')[0];
     if (host && host !== 'localhost' && host !== '127.0.0.1') {
       return `http://${host}:8001`;
     }
   }
 
-  // If running in Android emulator without hostUri
-  if (Platform.OS === 'android' && !Constants.isDevice) {
+  // 4. If running in Android emulator without hostUri
+  if (Platform.OS === 'android' && !Constants.isDevice && __DEV__) {
     return 'http://10.0.2.2:8001';
   }
 
-  // Fallback to local / dev API
+  // 5. If a deployed / remote URL is provided (e.g. custom domain), use it for production builds
+  if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+
+  // Fallback to env URL
   if (envUrl) {
     return envUrl.replace(/\/+$/, '');
   }
 
-  return 'http://192.168.1.6:8001';
+  return 'http://10.60.95.176:8001';
 };
 
 export const API_BASE_URL = getApiUrl();
