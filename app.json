@@ -2,7 +2,6 @@
   "expo": {
     "name": "MaitreD",
     "slug": "maitred-app",
-    "owner": "gayatrik",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -85,11 +84,15 @@
           "android": {
             "usesCleartextTraffic": true,
             "minSdkVersion": 24,
-            "newArchEnabled": false
+            "enableMinifyInReleaseBuilds": false,
+            "extraGradleProperties": {
+              "newArchEnabled": "false",
+              "android.enableMinifyInReleaseBuilds": "false"
+            },
+            "extraProguardRules": "-keep class org.webrtc.** { *; }\n-keep class com.oney.WebRTCModule.** { *; }\n-keep class com.daily.** { *; }\n-dontwarn org.webrtc.**\n-keep class com.facebook.react.** { *; }"
           },
           "ios": {
-            "deploymentTarget": "16.4",
-            "newArchEnabled": false
+            "deploymentTarget": "16.4"
           }
         }
       ],
@@ -111,7 +114,7 @@
         }
       },
       "eas": {
-        "projectId": "798b128a-6b30-4f91-a308-969031c13b71"
+        "projectId": "e335ab47-d431-41e9-acdf-64c9c26fdd68"
       }
     }
   }

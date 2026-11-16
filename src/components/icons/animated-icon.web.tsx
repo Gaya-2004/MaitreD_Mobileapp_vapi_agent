@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, ImageBackground, Image, Animated, Easing } from 'react-native';
+import { StyleSheet, View, Text, Image, Animated, Easing } from 'react-native';
 
 const DURATION = 3500;
 
@@ -40,11 +40,12 @@ export function AnimatedSplashOverlay() {
 
   return (
     <Animated.View style={[styles.splashContainer, { opacity: opacityAnim }]}>
-      <ImageBackground
-        source={require('../../../assets/images/logo-glow.png')}
-        style={styles.background}
-        blurRadius={10}
-      >
+      <View style={styles.background}>
+        <Image
+          source={require('../../../assets/images/logo-glow.png')}
+          style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+          blurRadius={10}
+        />
         <View style={styles.overlay}>
           <Animated.View style={{ transform: [{ scale: logoScale }], alignItems: 'center' }}>
             <Image
@@ -71,7 +72,7 @@ export function AnimatedSplashOverlay() {
             />
           </Animated.View>
         </View>
-      </ImageBackground>
+      </View>
     </Animated.View>
   );
 }

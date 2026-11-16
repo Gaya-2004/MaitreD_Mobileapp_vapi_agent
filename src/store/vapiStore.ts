@@ -18,6 +18,7 @@
  */
 
 import { Alert, NativeModules, Platform, PermissionsAndroid } from 'react-native';
+import * as Speech from 'expo-speech';
 import { create } from 'zustand';
 import { executeSingleAction, setActiveRouter, getActiveRouter, navigateScreen, UIAction } from '../utils/mobileAgentActionDispatcher';
 import { resolveRoute } from '../utils/agentRegistry';
@@ -99,6 +100,10 @@ const isWebRTCSupported = () => {
 };
 
 const getVapi = () => {
+  if (Platform.OS !== 'web' && !isWebRTCSupported()) {
+    console.warn('[VapiStore] Native WebRTC is not supported in this environment (e.g. Expo Go).');
+    return null;
+  }
   if (!vapiInstance) {
     if (!VapiClass) {
       try {
@@ -308,8 +313,14 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
     });
   }
 
-  const qty = Math.max(1, Number(fnArgs.quantity || fnArgs.qty || fnArgs.count || 1));
-  const rawName = String(
+  const wordToNumber: Record<string, number> = {
+    one: 1, two: 2, three: 3, four: 4, five: 5,
+    six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+    single: 1, double: 2, pair: 2, couple: 2,
+  };
+
+  let qty = Math.max(1, Number(fnArgs.quantity || fnArgs.qty || fnArgs.count || 1));
+  let cleanName = String(
     fnArgs.item_name ||
     fnArgs.name ||
     fnArgs.dish ||
@@ -318,6 +329,28 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
     fnArgs.query ||
     ''
   ).trim();
+
+  // If quantity was default 1, detect quantity from leading digits or number words
+  const leadingNum = cleanName.match(/^(\d+)\s+(.+)$/);
+  if (leadingNum) {
+    if (qty === 1) qty = parseInt(leadingNum[1], 10);
+    cleanName = leadingNum[2].trim();
+  } else {
+    for (const [w, n] of Object.entries(wordToNumber)) {
+      const reg = new RegExp(`\\b${w}\\b`, 'i');
+      if (reg.test(cleanName)) {
+        if (qty === 1) qty = n;
+        cleanName = cleanName.replace(reg, '').trim();
+      }
+    }
+  }
+
+  // Remove conversational fluff
+  cleanName = cleanName
+    .replace(/\b(to cart|in cart|into cart|to my cart|please|want|order|add|give me|put|can you add|for me)\b/gi, '')
+    .trim();
+
+  const rawName = cleanName;
   const rawId = fnArgs.item_id || fnArgs.id || (fnArgs.item && typeof fnArgs.item === 'object' ? fnArgs.item.id : null);
 
   console.log(`[VapiStore] resolveAndAddToCart: rawName="${rawName}", rawId="${rawId}", qty=${qty}`);
@@ -344,7 +377,7 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
     };
   }
 
-  // Look for candidates from menu_search
+  // Look for candidates from local menu first, then backend menu_search
   let candidates: any[] = [];
 
   // If rawId provided, check local store menuItems first
@@ -352,6 +385,17 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
     const localMatch = restaurantState.menuItems?.find((i: any) => String(i.id) === String(rawId));
     if (localMatch) {
       candidates = [localMatch];
+    }
+  }
+
+  // Check local store menuItems using matchMenuItem
+  if (candidates.length === 0) {
+    const localMenuItems = restaurantState.menuItems || [];
+    if (localMenuItems.length > 0) {
+      const localMatch = matchMenuItem(rawName, localMenuItems);
+      if (localMatch && localMatch.item && localMatch.confidence >= 0.35) {
+        candidates = [localMatch.item];
+      }
     }
   }
 
@@ -406,14 +450,17 @@ async function resolveAndAddToCart(fnArgs: any): Promise<{ success: boolean; cod
     };
   }
 
-  // Best candidate selection
-  const normTarget = rawName.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
-  let bestMatch = candidates.find((c: any) => c.name.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim() === normTarget);
-
-  if (!bestMatch && normTarget) {
+  // Best candidate selection using fuzzy match
+  const matchResult = matchMenuItem(rawName, candidates);
+  let bestMatch = matchResult?.item;
+  if (!bestMatch) {
+    const normTarget = rawName.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
+    bestMatch = candidates.find((c: any) => c.name.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim() === normTarget);
+  }
+  if (!bestMatch && rawName) {
+    const normTarget = rawName.toLowerCase().replace(/[^a-z0-9]/g, ' ').trim();
     bestMatch = candidates.find((c: any) => c.name.toLowerCase().includes(normTarget) || normTarget.includes(c.name.toLowerCase()));
   }
-
   if (!bestMatch) {
     bestMatch = candidates[0];
   }
@@ -478,6 +525,8 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
       // ── App Navigation ────────────────────────────────────────────────────────
 
       case 'app_navigate':
+      case 'navigate_app':
+      case 'navigate_screen':
       case 'navigate':
       case 'open_screen':
       case 'switch_screen': {
@@ -1183,6 +1232,18 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         }
       }
 
+      case 'api_request_tool': {
+        if (Array.isArray(fnArgs.ui_actions)) {
+          for (const act of fnArgs.ui_actions) {
+            executeSingleAction(act).catch(() => {});
+          }
+        }
+        return {
+          toolCallId,
+          result: JSON.stringify({ success: true, message: 'Actions executed.' })
+        };
+      }
+
       case 'mcp_tool':
       case 'voicemail_tool':
       case 'end_call_tool': {
@@ -1209,6 +1270,309 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
   }
 }
 
+// ─── Direct Speech / Text Navigation Fallback Intent Handler ──────────────────
+
+export const speakAssistantResponse = (text: string) => {
+  if (!text) return;
+  const isVapiConnected = useVapiStore.getState().isConnected;
+  const vapi = getVapi();
+
+  // CRITICAL: When Vapi WebRTC is active, NEVER use Android Google TTS (Speech.speak).
+  // All audio must come strictly through Vapi's Elliot voice over WebRTC!
+  if (isVapiConnected) {
+    if (vapi && typeof vapi.say === 'function') {
+      try {
+        vapi.say(text, false, false, true);
+      } catch (err) {
+        console.warn('[VapiStore] vapi.say error:', err);
+      }
+    }
+    return;
+  }
+
+  // Fallback to local expo-speech ONLY when Vapi is disconnected / offline
+  try {
+    const isTamil = useVapiStore.getState().isTamilMode;
+    Speech.stop();
+    Speech.speak(text, {
+      language: isTamil ? 'ta-IN' : 'en-US',
+      pitch: 1.0,
+      rate: 0.95,
+      onStart: () => {
+        useVapiStore.setState({ agentState: 'SPEAKING', partialAgentTranscript: text });
+      },
+      onDone: () => {
+        useVapiStore.setState({ agentState: 'LISTENING', partialAgentTranscript: '' });
+      },
+      onStopped: () => {
+        useVapiStore.setState({ agentState: 'LISTENING', partialAgentTranscript: '' });
+      },
+      onError: () => {
+        useVapiStore.setState({ agentState: 'LISTENING', partialAgentTranscript: '' });
+      },
+    });
+  } catch (err) {
+    console.warn('[VapiStore] Speech error:', err);
+    useVapiStore.setState({ agentState: 'LISTENING', partialAgentTranscript: '' });
+  }
+};
+
+function handleSpeechNavigationIntent(lower: string, vapi?: any): boolean {
+  let replyText = '';
+
+  // 1. Order Mode Switches (Takeaway / Dine In / Delivery)
+  if (
+    /\b(switch|change|set|make|select|turn|go|put)\b.*\b(takeaway|take away|take out|parcel|pickup)\b/i.test(lower) ||
+    /^(switch to |change to )?(takeaway|take away|parcel|pickup)(\s*(please|mode|option))?$/i.test(lower)
+  ) {
+    if (useCartStore.getState().orderType !== 'Take Away') {
+      console.log('[VapiStore] Speech detected intent: switch to takeaway');
+      useCartStore.getState().setOrderType('Take Away');
+      try {
+        vapi?.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: '[System Update] The user switched order mode to Take Away. App UI has been updated to Takeaway.'
+          }
+        });
+      } catch {}
+    }
+    replyText = 'Switched order mode to Takeaway.';
+  } else if (
+    /\b(switch|change|set|make|select|turn|go|put)\b.*\b(dine in|dine-in|dinein|table)\b/i.test(lower) ||
+    /^(switch to |change to )?(dine in|dine-in|dinein|table)(\s*(please|mode|option))?$/i.test(lower)
+  ) {
+    if (useCartStore.getState().orderType !== 'Dine In') {
+      console.log('[VapiStore] Speech detected intent: switch to dine in');
+      useCartStore.getState().setOrderType('Dine In');
+      try {
+        vapi?.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: '[System Update] The user switched order mode to Dine In. App UI has been updated to Dine-in.'
+          }
+        });
+      } catch {}
+    }
+    replyText = 'Switched order mode to Dine In.';
+  } else if (
+    /\b(switch|change|set|make|select|turn|go|put)\b.*\b(delivery|deliver|home delivery)\b/i.test(lower) ||
+    /^(switch to |change to )?(delivery|deliver|home delivery)(\s*(please|mode|option|to me))?$/i.test(lower) ||
+    /\b(home delivery|deliver to me)\b/i.test(lower)
+  ) {
+    if (useCartStore.getState().orderType !== 'Delivery') {
+      console.log('[VapiStore] Speech detected intent: switch to delivery');
+      useCartStore.getState().setOrderType('Delivery');
+      try {
+        vapi?.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: '[System Update] The user switched order mode to Delivery. App UI has been updated to Delivery.'
+          }
+        });
+      } catch {}
+    }
+    replyText = 'Switched order mode to Delivery.';
+  }
+  // 2. Menu Navigation ("show all the menus", "show menu", "open menu", "view menu", "browse menu")
+  else if (
+    /\b(show|open|view|see|go to|take me to|display|browse)\b.*\b(menu|menus|all the menu|all menus|items)\b/i.test(lower) ||
+    /\b(all the menus|show menu|browse menu|food menu|dishes)\b/i.test(lower) ||
+    /^(menu|the menu|show all the menus|browse menu)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: show all menus');
+    navigateScreen('/menu');
+    replyText = 'Opening the menu for you.';
+  }
+  // 3. Profile Navigation ("open profile", "show profile", "my account")
+  else if (
+    /\b(show|open|view|go to|take me to)\b.*\b(profile|account|my profile|my account)\b/i.test(lower) ||
+    /^(profile|my profile|my account)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: open profile');
+    navigateScreen('/profile');
+    replyText = 'Opening your profile.';
+  }
+  // 4. Rewards / Loyalty Points ("loyalty points", "rewards", "my points")
+  else if (
+    /\b(reward|rewards|loyalty|loyalty point|loyalty points|my points|points balance)\b/i.test(lower) ||
+    /^(rewards|loyalty points)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: open rewards');
+    navigateScreen('/rewards');
+    replyText = 'Here are your rewards and loyalty points.';
+  }
+  // 5. Addresses ("show addresses", "my address", "select address")
+  else if (
+    /\b(address|addresses|delivery address|saved address)\b/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: address handling');
+    if (/\b(home)\b/i.test(lower)) {
+      executeSingleAction({ action: 'select_address', payload: { address: 'home' } } as any);
+      replyText = 'Selected your home address.';
+    } else if (/\b(work|office)\b/i.test(lower)) {
+      executeSingleAction({ action: 'select_address', payload: { address: 'work' } } as any);
+      replyText = 'Selected your work address.';
+    } else {
+      navigateScreen('/(address)/my-addresses');
+      replyText = 'Opening saved addresses.';
+    }
+  }
+  // 6. Orders / History ("show orders", "order history", "past orders")
+  else if (
+    /\b(show|open|view|my|past)\b.*\b(orders|order history|track order)\b/i.test(lower) ||
+    /^(orders|my orders|order history|track order)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: open orders');
+    navigateScreen('/(order)/orders');
+    replyText = 'Showing your orders.';
+  }
+  // 7. Cart / Checkout ("show cart", "view cart", "open cart", "checkout")
+  else if (
+    /\b(show|open|view|go to|take me to)\b.*\b(cart|basket|checkout)\b/i.test(lower) ||
+    /^(cart|view cart|open cart|checkout)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: open cart');
+    navigateScreen('/(checkout)/checkout');
+    replyText = 'Opening your cart and checkout.';
+  }
+  // 8. Bulk Catering ("bulk catering", "catering packages")
+  else if (
+    /\b(catering|bulk catering|catering packages|bulk order)\b/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: bulk catering');
+    navigateScreen('/(main)/bulk-catering');
+    replyText = 'Opening bulk catering packages.';
+  }
+  // 9. Table Booking ("table booking", "reserve table")
+  else if (
+    /\b(table|booking|reservation|reserve table|book table)\b/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: table booking');
+    navigateScreen('/(main)/table-booking');
+    replyText = 'Opening table reservations.';
+  }
+  // 10. Home screen
+  else if (
+    /\b(home|home screen|homepage|main screen)\b/i.test(lower) ||
+    /^(home|go to home)$/i.test(lower)
+  ) {
+    console.log('[VapiStore] Speech detected intent: home');
+    navigateScreen('/(main)/home');
+    replyText = 'Taking you to the home screen.';
+  }
+  // 11. Add to cart
+  else if (/\b(add|order|want|get|have)\b/i.test(lower) && !/\b(remove|delete|cancel)\b/i.test(lower)) {
+    const localItems = useRestaurantStore.getState().menuItems || [];
+    const matched = matchMenuItem(lower, localItems);
+    const qtyMatch = lower.match(/\b(\d+)\b/);
+    const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
+    if (matched && matched.item) {
+      const itm = matched.item;
+      useCartStore.getState().addItem({
+        id: itm.id,
+        name: itm.name,
+        price: itm.price,
+        image: itm.image_url || itm.image,
+        category: itm.category,
+        quantity: qty,
+      } as any);
+      replyText = `Added ${qty > 1 ? qty + ' ' : ''}${itm.name} to your cart.`;
+    } else {
+      resolveAndAddToCart({ item_name: lower, quantity: qty }).then((res) => {
+        if (res.message) {
+          useVapiStore.setState((state) => ({
+            messages: [...state.messages, { role: 'assistant', text: res.message, isFinal: true }],
+          }));
+          if (!useVapiStore.getState().isConnected) {
+            speakAssistantResponse(res.message);
+          } else {
+            vapi?.send({
+              type: 'add-message',
+              message: {
+                role: 'system',
+                content: `[Confirmed System Action] ${res.message}`
+              }
+            });
+          }
+        }
+      });
+      return true;
+    }
+  }
+  // 12. Remove from cart / delete item
+  else if (/\b(remove|delete|cancel|take out|drop)\b/i.test(lower)) {
+    const cart = useCartStore.getState().items;
+    const cartList = Object.values(cart);
+    if (cartList.length === 0) {
+      replyText = 'Your cart is already empty.';
+    } else {
+      const cleanTarget = lower
+        .replace(/\b(remove|delete|cancel|take out|drop|from cart|in cart|to cart|my cart|cart|please|the|item|dish)\b/gi, '')
+        .trim();
+      let match = cartList.find(i => cleanTarget && (i.name.toLowerCase().includes(cleanTarget) || cleanTarget.includes(i.name.toLowerCase())));
+      if (!match && cleanTarget) {
+        const firstWord = cleanTarget.split(' ')[0];
+        if (firstWord && firstWord.length > 2) {
+          match = cartList.find(i => i.name.toLowerCase().includes(firstWord));
+        }
+      }
+      if (!match) {
+        match = cartList[cartList.length - 1];
+      }
+      if (match) {
+        useCartStore.getState().removeItem(match.id);
+        replyText = `Removed ${match.name} from your cart.`;
+      } else {
+        replyText = 'Which item would you like to remove from your cart?';
+      }
+    }
+  }
+  // 13. Clear entire cart
+  else if (/\b(clear cart|empty cart|clear my cart|remove all|delete all)\b/i.test(lower)) {
+    useCartStore.getState().clearCart();
+    replyText = 'I have cleared all items from your cart.';
+  }
+  // 14. Place order
+  else if (/\b(place order|confirm order|order now|checkout now|buy now)\b/i.test(lower)) {
+    const cartCount = useCartStore.getState().getItemCount();
+    if (cartCount === 0) {
+      replyText = 'Your cart is currently empty. Please add dishes to your cart first.';
+    } else {
+      navigateScreen('/(checkout)/checkout');
+      replyText = 'Opening checkout to place your order.';
+    }
+  }
+
+  if (replyText) {
+    const isTamil = useVapiStore.getState().isTamilMode;
+    const finalReply = isTamil ? replyText : replyText;
+    useVapiStore.setState((state) => ({
+      messages: [...state.messages, { role: 'assistant', text: finalReply, isFinal: true }],
+    }));
+
+    const isVapiConnected = useVapiStore.getState().isConnected;
+    if (isVapiConnected && vapi) {
+      try {
+        vapi.send({
+          type: 'add-message',
+          message: {
+            role: 'system',
+            content: `[Confirmed System Action] ${finalReply}`
+          }
+        });
+      } catch {}
+    } else {
+      speakAssistantResponse(finalReply);
+    }
+    return true;
+  }
+  return false;
+}
+
 // ─── Store ────────────────────────────────────────────────────────────────────
 
 export const useVapiStore = create<VapiState>((set, get) => ({
@@ -1233,6 +1597,17 @@ export const useVapiStore = create<VapiState>((set, get) => ({
     }
 
     set({ isConnecting: true, agentState: 'PROCESSING' });
+
+    if (!isWebRTCSupported() && Platform.OS !== 'web') {
+      console.warn('[VapiStore] Native WebRTC module is not present in this client (Expo Go). Real-time voice requires an Expo development build or web browser.');
+      Alert.alert(
+        'Development Build Required',
+        'Vapi real-time voice calls require native WebRTC, which is not available in standard Expo Go.\n\nTo use full voice calling:\n• Run on Web: npm run web\n• Or create a dev build: npx expo run:android / ios\n\n(Voice command routing & simulated commands work in the Voice Agent modal)',
+        [{ text: 'OK' }]
+      );
+      set({ isConnecting: false, agentState: 'IDLE' });
+      return;
+    }
 
     // Request Android microphone permission
     if (Platform.OS === 'android') {
@@ -1287,14 +1662,43 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       console.log(`[VapiStore] Starting Vapi call with assistant: ${assistantId}...`);
       await vapi.start(assistantId, overrides);
       set({ isConnected: true, isConnecting: false, agentState: 'LISTENING' });
+
+      // Route audio to speakerphone on mobile
+      if (Platform.OS === 'android' && NativeModules?.WebRTCModule?.setAudioDevice) {
+        try { NativeModules.WebRTCModule.setAudioDevice('SPEAKERPHONE'); } catch {}
+      }
     } catch (e: any) {
-      console.warn('[VapiStore] startCall error:', e);
-      set({ isConnecting: false, agentState: 'IDLE' });
-      Alert.alert('Voice Assistant', e?.message || 'Could not connect to voice assistant.');
+      console.warn('[VapiStore] Vapi startCall error:', e);
+      const errMsg = e?.message || e?.error?.message || (typeof e === 'string' ? e : JSON.stringify(e || {}));
+      const isBalanceError = /wallet balance|purchase more credits|upgrade your plan|-0\.3/i.test(errMsg);
+
+      let notifyText = dynamicFirstMessage;
+      if (isBalanceError) {
+        notifyText = "Vapi Voice Server: Your Vapi account wallet balance is negative (-$0.30). Please top up credits on dashboard.vapi.ai to enable live WebRTC voice calling. In the meantime, you can use quick suggestions or text below to navigate and order.";
+      }
+
+      set({ 
+        isConnected: false, 
+        isConnecting: false, 
+        agentState: 'IDLE',
+        messages: [{ role: 'assistant', text: notifyText, isFinal: true }]
+      });
+      speakAssistantResponse(notifyText);
+
+      if (isBalanceError) {
+        Alert.alert(
+          'Vapi Credits Required',
+          'Vapi rejected the call because your account wallet balance is -$0.30.\n\nPlease purchase credits or add billing at https://dashboard.vapi.ai to start real-time WebRTC voice calls.\n\nYou can still use the prompt buttons and text input to navigate and order.',
+          [{ text: 'OK' }]
+        );
+      }
     }
   },
 
   stopCall: () => {
+    try {
+      Speech.stop();
+    } catch {}
     try {
       getVapi()?.stop();
     } catch (e) {
@@ -1312,8 +1716,12 @@ export const useVapiStore = create<VapiState>((set, get) => ({
   toggleMute: () => {
     const currentState = get().isMuted;
     const vapi = getVapi();
-    if (vapi?.setMuted) {
-      vapi.setMuted(!currentState);
+    if (vapi?.setMuted && get().isConnected) {
+      try {
+        vapi.setMuted(!currentState);
+      } catch (err) {
+        console.warn('[VapiStore] setMuted error:', err);
+      }
     }
     set({ isMuted: !currentState });
   },
@@ -1335,9 +1743,14 @@ export const useVapiStore = create<VapiState>((set, get) => ({
         });
       } catch {}
     }
+    const switchMsg = next ? 'தமிழ் முறைக்கு மாற்றப்பட்டது.' : 'Switched to English mode.';
+    speakAssistantResponse(switchMsg);
   },
 
   stopSpeaking: () => {
+    try {
+      Speech.stop();
+    } catch {}
     const vapi = getVapi();
     if (vapi?.send) {
       try {
@@ -1399,6 +1812,9 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       partialUserTranscript: '',
     }));
 
+    // Trigger local navigation intent immediately
+    const handled = handleSpeechNavigationIntent(trimmed.toLowerCase(), vapi);
+
     if (vapi && get().isConnected) {
       try {
         (vapi as any).send({
@@ -1411,6 +1827,24 @@ export const useVapiStore = create<VapiState>((set, get) => ({
       } catch (e) {
         console.warn('[VapiStore] Failed to send user message to vapi:', e);
       }
+    }
+
+    // If not handled locally, and Vapi is NOT connected, provide fallback reply
+    if (!handled && (!vapi || !get().isConnected)) {
+      const isTamil = get().isTamilMode;
+      let reply = "I'm on it! Would you like to view our menu, order a dish, or check your cart?";
+      if (/hello|hi|hey/i.test(trimmed)) {
+        reply = isTamil ? "வணக்கம்! MaitreD-க்கு வரவேற்கிறோம். உங்களுக்கு என்ன வேண்டும்?" : "Hello! Welcome to MaitreD. How may I assist you today?";
+      } else if (/price|cost|bill|total/i.test(trimmed)) {
+        const total = useCartStore.getState().getSubtotal();
+        reply = total > 0 ? `Your cart total is ₹${total}. Would you like to proceed to checkout?` : "Your cart is currently empty. Would you like to see our menu?";
+      } else if (/thank/i.test(trimmed)) {
+        reply = isTamil ? "மிக்க நன்றி! மகிழ்ச்சியான உணவு!" : "You are very welcome! Enjoy your meal!";
+      }
+      set((state) => ({
+        messages: [...state.messages, { role: 'assistant', text: reply, isFinal: true }],
+      }));
+      speakAssistantResponse(reply);
     }
   },
 
@@ -1425,6 +1859,11 @@ export const useVapiStore = create<VapiState>((set, get) => ({
 
     vapi.on('call-start', () => {
       set({ isConnected: true, isConnecting: false, agentState: 'LISTENING' });
+
+      // Route audio to speakerphone on mobile
+      if (Platform.OS === 'android' && NativeModules?.WebRTCModule?.setAudioDevice) {
+        try { NativeModules.WebRTCModule.setAudioDevice('SPEAKERPHONE'); } catch {}
+      }
 
       // Warm the menu cache in the background so the first food request does
       // not stall on a cold network fetch.
@@ -1519,6 +1958,13 @@ export const useVapiStore = create<VapiState>((set, get) => ({
                 content: result.result,
               },
             });
+
+            // 3. Direct Vapi standard tool-call-result format
+            (vapi as any).send({
+              type: 'tool-call-result',
+              toolCallId: result.toolCallId,
+              result: result.result,
+            });
           } catch (e) {
             console.warn('[VapiStore] Result feedback via vapi.send notice:', e);
           }
@@ -1551,6 +1997,13 @@ export const useVapiStore = create<VapiState>((set, get) => ({
         );
       }
 
+      // ── Direct UI Actions from Vapi message ──────────────────────────────────
+      if (Array.isArray(message.ui_actions) && message.ui_actions.length > 0) {
+        for (const act of message.ui_actions) {
+          executeSingleAction(act).catch((err) => console.warn('[VapiStore] UI Action failed:', err));
+        }
+      }
+
       // ── Transcript handling: real-time partial + merged final ────────────────
 
       if (message.type === 'transcript') {
@@ -1559,114 +2012,7 @@ export const useVapiStore = create<VapiState>((set, get) => ({
 
         if (role === 'user' && text) {
           const lower = text.toLowerCase().trim();
-
-          // 1. Order Mode Switches (Takeaway / Dine In / Delivery)
-          if (
-            /\b(switch|change|set|make|select|turn|go|put)\b.*\b(takeaway|take away|take out|parcel|pickup)\b/i.test(lower) ||
-            /^(switch to |change to )?(takeaway|take away)(\s*(please|mode|option))?$/i.test(lower)
-          ) {
-            if (useCartStore.getState().orderType !== 'Take Away') {
-              console.log('[VapiStore] Speech detected intent: switch to takeaway');
-              useCartStore.getState().setOrderType('Take Away');
-              try {
-                (vapi as any).send({
-                  type: 'add-message',
-                  message: {
-                    role: 'system',
-                    content: '[System Update] The user switched order mode to Take Away. App UI has been updated to Takeaway.'
-                  }
-                });
-              } catch {}
-            }
-          } else if (
-            /\b(switch|change|set|make|select|turn|go|put)\b.*\b(dine in|dine-in|dinein|table)\b/i.test(lower) ||
-            /^(switch to |change to )?(dine in|dine-in)(\s*(please|mode|option))?$/i.test(lower)
-          ) {
-            if (useCartStore.getState().orderType !== 'Dine In') {
-              console.log('[VapiStore] Speech detected intent: switch to dine in');
-              useCartStore.getState().setOrderType('Dine In');
-              try {
-                (vapi as any).send({
-                  type: 'add-message',
-                  message: {
-                    role: 'system',
-                    content: '[System Update] The user switched order mode to Dine In. App UI has been updated to Dine-in.'
-                  }
-                });
-              } catch {}
-            }
-          } else if (
-            /\b(switch|change|set|make|select|turn|go|put)\b.*\b(delivery|deliver|home delivery)\b/i.test(lower) ||
-            /^(switch to |change to )?(delivery)(\s*(please|mode|option))?$/i.test(lower)
-          ) {
-            if (useCartStore.getState().orderType !== 'Delivery') {
-              console.log('[VapiStore] Speech detected intent: switch to delivery');
-              useCartStore.getState().setOrderType('Delivery');
-              try {
-                (vapi as any).send({
-                  type: 'add-message',
-                  message: {
-                    role: 'system',
-                    content: '[System Update] The user switched order mode to Delivery. App UI has been updated to Delivery.'
-                  }
-                });
-              } catch {}
-            }
-          }
-          // 2. Menu Navigation ("show all the menus", "show menu", "open menu", "view menu")
-          else if (
-            /\b(show|open|view|see|go to|take me to|display)\b.*\b(menu|menus|all the menu|all menus|items)\b/i.test(lower) ||
-            /\b(all the menus|show menu|browse menu|food menu)\b/i.test(lower) ||
-            /^(menu|the menu|show all the menus)$/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: show all menus');
-            navigateScreen('/menu');
-          }
-          // 3. Profile Navigation ("open profile", "show profile", "my account")
-          else if (
-            /\b(show|open|view|go to|take me to)\b.*\b(profile|account|my profile|my account)\b/i.test(lower) ||
-            /^(profile|my profile|my account)$/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: open profile');
-            navigateScreen('/profile');
-          }
-          // 4. Rewards / Loyalty Points ("loyalty points", "rewards", "my points")
-          else if (
-            /\b(reward|rewards|loyalty|loyalty point|loyalty points|my points|points balance)\b/i.test(lower) ||
-            /^(rewards|loyalty points)$/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: open rewards');
-            navigateScreen('/rewards');
-          }
-          // 5. Addresses ("show addresses", "my address", "select address")
-          else if (
-            /\b(address|addresses|delivery address|saved address)\b/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: address handling');
-            if (/\b(home)\b/i.test(lower)) {
-              executeSingleAction({ action: 'select_address', payload: { address: 'home' } } as any);
-            } else if (/\b(work|office)\b/i.test(lower)) {
-              executeSingleAction({ action: 'select_address', payload: { address: 'work' } } as any);
-            } else {
-              navigateScreen('/(address)/my-addresses');
-            }
-          }
-          // 6. Orders / History ("show orders", "order history", "past orders")
-          else if (
-            /\b(show|open|view|my|past)\b.*\b(orders|order history)\b/i.test(lower) ||
-            /^(orders|my orders|order history)$/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: open orders');
-            navigateScreen('/(order)/orders');
-          }
-          // 7. Cart / Checkout ("show cart", "view cart", "open cart", "checkout")
-          else if (
-            /\b(show|open|view|go to|take me to)\b.*\b(cart|basket|checkout)\b/i.test(lower) ||
-            /^(cart|view cart|open cart|checkout)$/i.test(lower)
-          ) {
-            console.log('[VapiStore] Speech detected intent: open cart');
-            navigateScreen('/(checkout)/checkout');
-          }
+          handleSpeechNavigationIntent(lower, vapi);
         }
 
         if (message.transcriptType === 'partial') {

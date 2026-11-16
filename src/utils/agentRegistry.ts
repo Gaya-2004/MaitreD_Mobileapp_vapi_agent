@@ -17,25 +17,34 @@
 
 export const SCREEN_REGISTRY: Record<string, string> = {
   // Auth
-  '/login': '/login',
-  '/signup': '/signup',
+  '/login': '/(auth)/login',
+  '/(auth)/login': '/(auth)/login',
+  '/signup': '/(auth)/signup',
+  '/(auth)/signup': '/(auth)/signup',
 
   // Restaurant
-  '/outlet-selector': '/outlet-selector',
+  '/outlet-selector': '/(main)/outlet-selector',
+  '/(main)/outlet-selector': '/(main)/outlet-selector',
 
   // Main
-  '/home': '/home',
-  '/menu': '/menu',
-  '/profile': '/profile',
-  '/rewards': '/rewards',
-  '/favourites': '/favourites',
-  '/for-you': '/for-you',
+  '/home': '/(main)/home',
+  '/(main)/home': '/(main)/home',
+  '/menu': '/(main)/menu',
+  '/(main)/menu': '/(main)/menu',
+  '/profile': '/(main)/profile',
+  '/(main)/profile': '/(main)/profile',
+  '/rewards': '/(main)/rewards',
+  '/(main)/rewards': '/(main)/rewards',
+  '/favourites': '/(main)/favourites',
+  '/(main)/favourites': '/(main)/favourites',
+  '/for-you': '/(main)/for-you',
+  '/(main)/for-you': '/(main)/for-you',
 
   // Addresses
-  '/my-addresses': '/my-addresses',
+  '/my-addresses': '/(address)/my-addresses',
+  '/(address)/my-addresses': '/(address)/my-addresses',
   '/add-address': '/(address)/add-address',
   '/(address)/add-address': '/(address)/add-address',
-  '/(address)/my-addresses': '/(address)/my-addresses',
 
   // Checkout
   '/checkout': '/(checkout)/checkout',
@@ -45,11 +54,17 @@ export const SCREEN_REGISTRY: Record<string, string> = {
   '/payment': '/(checkout)/payment',
   '/(checkout)/payment': '/(checkout)/payment',
   '/payment-methods': '/(checkout)/payment-methods',
+  '/(checkout)/payment-methods': '/(checkout)/payment-methods',
   '/razorpay-screen': '/(checkout)/razorpay-screen',
+  '/(checkout)/razorpay-screen': '/(checkout)/razorpay-screen',
   '/order-success': '/(checkout)/order-success',
+  '/(checkout)/order-success': '/(checkout)/order-success',
   '/delivery-success': '/(checkout)/delivery-success',
+  '/(checkout)/delivery-success': '/(checkout)/delivery-success',
   '/order-completed': '/(checkout)/order-completed',
+  '/(checkout)/order-completed': '/(checkout)/order-completed',
   '/invoice': '/(checkout)/invoice',
+  '/(checkout)/invoice': '/(checkout)/invoice',
 
   // Orders
   '/orders': '/(order)/orders',
@@ -61,20 +76,31 @@ export const SCREEN_REGISTRY: Record<string, string> = {
   '/delivery-tracking': '/(order)/delivery-tracking',
   '/(order)/delivery-tracking': '/(order)/delivery-tracking',
   '/delivery-completed': '/(order)/delivery-completed',
+  '/(order)/delivery-completed': '/(order)/delivery-completed',
 
   // Catering
   '/bulk-catering': '/(main)/bulk-catering',
   '/(main)/bulk-catering': '/(main)/bulk-catering',
   '/catering-choose-package': '/(main)/catering-choose-package',
+  '/(main)/catering-choose-package': '/(main)/catering-choose-package',
   '/catering-event-details': '/(main)/catering-event-details',
+  '/(main)/catering-event-details': '/(main)/catering-event-details',
   '/catering-customise-menu': '/(main)/catering-customise-menu',
+  '/(main)/catering-customise-menu': '/(main)/catering-customise-menu',
   '/catering-add-extras': '/(main)/catering-add-extras',
+  '/(main)/catering-add-extras': '/(main)/catering-add-extras',
   '/catering-review-quote': '/(main)/catering-review-quote',
+  '/(main)/catering-review-quote': '/(main)/catering-review-quote',
   '/catering-advance-payment': '/(main)/catering-advance-payment',
+  '/(main)/catering-advance-payment': '/(main)/catering-advance-payment',
   '/catering-balance-payment': '/(main)/catering-balance-payment',
+  '/(main)/catering-balance-payment': '/(main)/catering-balance-payment',
   '/catering-razorpay-checkout': '/(main)/catering-razorpay-checkout',
+  '/(main)/catering-razorpay-checkout': '/(main)/catering-razorpay-checkout',
   '/catering-order-success': '/(main)/catering-order-success',
+  '/(main)/catering-order-success': '/(main)/catering-order-success',
   '/catering-order-details': '/(main)/catering-order-details',
+  '/(main)/catering-order-details': '/(main)/catering-order-details',
 };
 
 // ─── Natural language alias → canonical route ─────────────────────────────

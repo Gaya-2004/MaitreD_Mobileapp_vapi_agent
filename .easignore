@@ -9,5 +9,5 @@ lint-output*.txt
 .vscode/
 .claude/
 qr_codes_output/
-android/
+# android/
 ios/

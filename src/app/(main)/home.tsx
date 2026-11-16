@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, ImageBackground, Platform, StatusBar, Alert, Modal, ActivityIndicator, Dimensions, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Image, Platform, StatusBar, Alert, Modal, ActivityIndicator, Dimensions, RefreshControl } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
@@ -886,12 +886,12 @@ export default function Home() {
             >
               {offersList.map((offer) => (
                 <View key={offer.uniqueId} style={styles.carouselSlide}>
-                  <ImageBackground
-                    source={require('../../../assets/images/banner_bg.jpg')}
-                    style={styles.banner}
-                    imageStyle={styles.bannerImage}
-                    resizeMode="cover"
-                  >
+                  <View style={styles.banner}>
+                    <Image
+                      source={require('../../../assets/images/banner_bg.jpg')}
+                      style={[StyleSheet.absoluteFill, styles.bannerImage]}
+                      resizeMode="cover"
+                    />
                     <View style={[styles.bannerOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.35)' }]}>
                       <Text style={styles.bannerDiscount}>{offer.discount}</Text>
                       <Text style={styles.bannerSubtitle}>{offer.subtitle}</Text>
@@ -924,7 +924,7 @@ export default function Home() {
                         <Text style={styles.orderNowText}>Order Now</Text>
                       </TouchableOpacity>
                     </View>
-                  </ImageBackground>
+                  </View>
                 </View>
               ))}
             </ScrollView>

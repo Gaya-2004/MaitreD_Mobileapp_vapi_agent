@@ -22,6 +22,7 @@ import { useRestaurantStore } from '../store/useRestaurantStore';
 import { useVoiceAgentStore } from '../store/useVoiceAgentStore';
 import { useAddressStore } from '../store/useAddressStore';
 import { SUPPORTED_ACTIONS, resolveRoute } from './agentRegistry';
+import { matchMenuItem } from './menuMatching';
 
 // ─── Active Router Reference ──────────────────────────────────────────────────
 let activeRouter: any = null;
@@ -254,30 +255,42 @@ export async function executeSingleAction(act: UIAction): Promise<ActionResult> 
       case 'remove_from_cart': {
         let itemId = act.menu_item_id || act.payload?.item_id;
         const cart = useCartStore.getState().items;
-        const targetName = (act as any).item_name || act.payload?.item_name || act.payload?.name;
+        const cartList = Object.values(cart);
+        const targetName = (act as any).item_name || act.payload?.item_name || act.payload?.name || act.payload?.dish;
         if (!itemId && targetName) {
-          const normTarget = String(targetName).toLowerCase().trim();
-          const match = Object.values(cart).find(i => {
-            const iName = i.name.toLowerCase().trim();
-            return iName.includes(normTarget) || normTarget.includes(iName);
-          });
-          if (match) itemId = match.id;
+          const matchResult = matchMenuItem(String(targetName), cartList);
+          if (matchResult && matchResult.item) {
+            itemId = matchResult.item.id;
+          } else {
+            const normTarget = String(targetName).toLowerCase().trim();
+            const match = cartList.find(i => {
+              const iName = i.name.toLowerCase().trim();
+              return iName.includes(normTarget) || normTarget.includes(iName);
+            });
+            if (match) itemId = match.id;
+          }
         }
         if (!itemId) {
-          const lastItem = Object.values(cart).pop();
+          const lastItem = cartList[cartList.length - 1];
           if (lastItem) {
             useCartStore.getState().removeItem(lastItem.id);
-            return { success: true, action, message: `Removed ${lastItem.name} from cart.`, data: { item_id: lastItem.id } };
+            return { success: true, action, message: `Removed ${lastItem.name} from your cart.`, data: { item_id: lastItem.id } };
           }
-          return { success: false, action, message: 'No item in cart to remove.' };
+          return { success: false, action, message: 'Your cart is already empty.' };
         }
 
         const existing = cart[itemId] || cart[String(itemId)] || cart[Number(itemId)];
         if (!existing) {
           return { success: false, action, message: `Item is not in cart.` };
         }
-        useCartStore.getState().removeItem(existing.id);
-        return { success: true, action, message: `Removed ${existing.name} from cart.`, data: { item_id: itemId } };
+        const qtyToRemove = Number(act.quantity || act.payload?.quantity || 1);
+        if (existing.quantity > qtyToRemove) {
+          useCartStore.getState().updateQuantity(existing.id, existing.quantity - qtyToRemove);
+          return { success: true, action, message: `Removed ${qtyToRemove} ${existing.name} from cart. You now have ${existing.quantity - qtyToRemove}.`, data: { item_id: existing.id } };
+        } else {
+          useCartStore.getState().removeItem(existing.id);
+          return { success: true, action, message: `Removed ${existing.name} from cart.`, data: { item_id: existing.id } };
+        }
       }
 
       // ── Cart: Increment ──────────────────────────────────────────────────────

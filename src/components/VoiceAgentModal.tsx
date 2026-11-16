@@ -242,6 +242,14 @@ export default function VoiceAgentModal() {
     setActiveRouter(router);
   }, [router]);
 
+  // Auto-connect voice session whenever modal becomes visible
+  useEffect(() => {
+    if (isVisible && !isConnected && !isConnecting) {
+      setActiveRouter(router);
+      startCall();
+    }
+  }, [isVisible, isConnected, isConnecting, router, startCall]);
+
   const openModal = () => {
     setActiveRouter(router);
     showAgent();
@@ -265,13 +273,7 @@ export default function VoiceAgentModal() {
 
   const handleSuggestionPress = (sug: string) => {
     setActiveRouter(router);
-    if (!isConnected && !isConnecting) {
-      startCall().then(() => {
-        setTimeout(() => sendTextMessage(sug), 500);
-      });
-    } else {
-      sendTextMessage(sug);
-    }
+    sendTextMessage(sug);
   };
 
   const handleSendText = () => {
@@ -279,13 +281,7 @@ export default function VoiceAgentModal() {
     const txt = inputText.trim();
     setInputText('');
     setActiveRouter(router);
-    if (!isConnected && !isConnecting) {
-      startCall().then(() => {
-        setTimeout(() => sendTextMessage(txt), 500);
-      });
-    } else {
-      sendTextMessage(txt);
-    }
+    sendTextMessage(txt);
   };
 
   const [pan] = useState(() => new Animated.ValueXY());

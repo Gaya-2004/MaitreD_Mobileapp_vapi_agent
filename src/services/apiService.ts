@@ -249,13 +249,128 @@ export const restaurantApi = {
 /**
  * Menu Endpoints
  */
+const FALLBACK_CATEGORIES = [
+  { id: 1, name: 'Breakfast & Dinner', description: 'South Indian' },
+  { id: 2, name: 'Dosa Varieties', description: 'South Indian' },
+  { id: 3, name: 'Evening Snacks', description: 'South Indian' },
+  { id: 4, name: 'Hot Beverages', description: 'South Indian' },
+  { id: 5, name: 'Lunch', description: 'South Indian' },
+  { id: 6, name: 'Rice Varieties', description: 'South Indian' },
+  { id: 7, name: 'Soups', description: 'North Indian' },
+  { id: 8, name: 'Tandoori Breads', description: 'North Indian' },
+  { id: 9, name: 'Tandoori Starters', description: 'North Indian' },
+  { id: 10, name: 'Noodles', description: 'Chinese' },
+];
+
+const FALLBACK_MENU_ITEMS = [
+  {
+    id: 1,
+    name: 'Masala Dosa',
+    description: 'Crispy rice and lentil crepe stuffed with spiced potato filling, served with chutneys and sambar.',
+    price: 120,
+    is_available: true,
+    category_id: 2,
+    image_url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&q=80',
+  },
+  {
+    id: 2,
+    name: 'Idli Sambar (2 Pcs)',
+    description: 'Steamed fluffy rice cakes served with piping hot authentic lentil sambar and fresh coconut chutney.',
+    price: 70,
+    is_available: true,
+    category_id: 1,
+    image_url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&q=80',
+  },
+  {
+    id: 3,
+    name: 'Medu Vada (2 Pcs)',
+    description: 'Crispy golden deep-fried lentil fritters spiced with peppercorns, curry leaves, and ginger.',
+    price: 80,
+    is_available: true,
+    category_id: 1,
+    image_url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&q=80',
+  },
+  {
+    id: 4,
+    name: 'Ghee Roast Dosa',
+    description: 'Crispy, paper-thin golden crepe generously roasted in pure clarified butter (desi ghee).',
+    price: 150,
+    is_available: true,
+    category_id: 2,
+    image_url: 'https://images.unsplash.com/photo-1589301760014-d929f3979dbc?w=600&q=80',
+  },
+  {
+    id: 5,
+    name: 'Filter Coffee',
+    description: 'Traditional South Indian chicory-infused filter drip coffee brewed with frothy whole milk.',
+    price: 50,
+    is_available: true,
+    category_id: 4,
+    image_url: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=600&q=80',
+  },
+  {
+    id: 6,
+    name: 'Veg Biryani',
+    description: 'Fragrant basmati rice slow-cooked with fresh garden vegetables, mint, saffron, and aromatic spices.',
+    price: 190,
+    is_available: true,
+    category_id: 6,
+    image_url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?w=600&q=80',
+  },
+  {
+    id: 7,
+    name: 'Poori Masala (3 Pcs)',
+    description: 'Puffy deep-fried wheat breads served with delicious spiced potato bhaji and coconut chutney.',
+    price: 110,
+    is_available: true,
+    category_id: 1,
+    image_url: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80',
+  },
+  {
+    id: 8,
+    name: 'Paneer Butter Masala',
+    description: 'Soft cottage cheese cubes simmered in a rich, creamy, mildly spiced tomato cashew gravy.',
+    price: 220,
+    is_available: true,
+    category_id: 8,
+    image_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?w=600&q=80',
+  },
+  {
+    id: 9,
+    name: 'Garlic Naan',
+    description: 'Traditional tandoor-baked leavened flatbread brushed with melted butter and fresh minced garlic.',
+    price: 75,
+    is_available: true,
+    category_id: 8,
+    image_url: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&q=80',
+  },
+  {
+    id: 10,
+    name: 'Hot & Sour Veg Soup',
+    description: 'Zesty Asian-style soup packed with finely diced fresh vegetables, mushrooms, and pepper.',
+    price: 95,
+    is_available: true,
+    category_id: 7,
+    image_url: 'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=600&q=80',
+  },
+];
+
 export const menuApi = {
   /** GET /api/v1/public/menu/categories */
   getCategories: (restaurantId: number, force = false) => {
     if (!restaurantId) throw new Error("restaurantId is required");
     return cachedFetch(
       `categories_${restaurantId}`,
-      () => fetchWithTimeout(`${API_BASE_URL}/api/v1/public/menu/categories?restaurant_id=${restaurantId}`),
+      async () => {
+        try {
+          const res = await fetchWithTimeout(`${API_BASE_URL}/api/v1/public/menu/categories?restaurant_id=${restaurantId}`);
+          if (Array.isArray(res) && res.length > 0) return res;
+          return FALLBACK_CATEGORIES;
+        } catch (err) {
+          console.warn('[menuApi.getCategories] Server unreachable, using fallback categories');
+          return FALLBACK_CATEGORIES;
+        }
+      },
       60000,
       force
     );
@@ -266,7 +381,16 @@ export const menuApi = {
     if (!restaurantId) throw new Error("restaurantId is required");
     return cachedFetch(
       `items_${restaurantId}`,
-      () => fetchWithTimeout(`${API_BASE_URL}/api/v1/public/menu/items?restaurant_id=${restaurantId}`),
+      async () => {
+        try {
+          const res = await fetchWithTimeout(`${API_BASE_URL}/api/v1/public/menu/items?restaurant_id=${restaurantId}`);
+          if (Array.isArray(res) && res.length > 0) return res;
+          return FALLBACK_MENU_ITEMS;
+        } catch (err) {
+          console.warn('[menuApi.getItems] Server unreachable, using fallback items');
+          return FALLBACK_MENU_ITEMS;
+        }
+      },
       60000,
       force
     );

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ImageBackground, Platform, StatusBar } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
@@ -14,11 +14,12 @@ export default function BulkCatering() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         
         {/* Header Image */}
-        <ImageBackground 
-          source={require('../../../assets/images/banner_bg.jpg')} 
-          style={styles.headerImageContainer}
-          imageStyle={{ resizeMode: 'cover' }}
-        >
+        <View style={styles.headerImageContainer}>
+          <Image 
+            source={require('../../../assets/images/banner_bg.jpg')} 
+            style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
+            resizeMode="cover"
+          />
           {/* Back button */}
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#333" />
@@ -31,7 +32,7 @@ export default function BulkCatering() {
             </View>
             <Text style={styles.headerTitle}>Fresh vegetarian catering for 50+ guests</Text>
           </View>
-        </ImageBackground>
+        </View>
 
         {/* Content Container */}
         <View style={styles.contentContainer}>
