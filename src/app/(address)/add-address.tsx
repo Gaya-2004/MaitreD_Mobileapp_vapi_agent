@@ -11,6 +11,7 @@ import { isWithinDeliveryArea, checkDeliveryCoverage, DeliveryCoverageResult } f
 import DeliveryUnavailableModal from '../../components/ui/DeliveryUnavailableModal';
 import { LIGHT_MAP_STYLE } from '../../constants/mapStyle';
 import { GOOGLE_MAPS_API_KEY } from '../../constants/maps';
+import { safeBack } from '../../utils/navigation';
 
 const MapView = Platform.OS !== 'web' ? require('react-native-maps').default : null;
 const { PROVIDER_GOOGLE } = Platform.OS !== 'web' ? require('react-native-maps') : { PROVIDER_GOOGLE: 'google' };
@@ -339,7 +340,7 @@ export default function AddAddress() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle='dark-content' backgroundColor='#fff' />
+      <StatusBar barStyle="dark-content" />
       {/* Background image matching landing page */}
       <Image
         source={require('../../../assets/images/landing_food_bg.jpg')}
@@ -350,7 +351,7 @@ export default function AddAddress() {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.canGoBack() ? router.back() : router.replace('/my-addresses')}>
+        <TouchableOpacity style={styles.backBtn} onPress={() => safeBack(router, '/my-addresses')}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Add Address</Text>
