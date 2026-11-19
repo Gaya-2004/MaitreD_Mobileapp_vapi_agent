@@ -43,7 +43,7 @@
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.maitred.app",
-      "versionCode": 4
+      "versionCode": 5
     },
     "web": {
       "output": "single",
