@@ -4,6 +4,8 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import VoiceAgentModal from '../components/VoiceAgentModal';
 import ResponsiveContainer from '../components/layout/ResponsiveContainer';

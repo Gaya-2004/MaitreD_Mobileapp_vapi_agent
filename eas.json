@@ -1,12 +1,15 @@
 {
   "cli": {
-    "version": ">= 20.0.0",
-    "appVersionSource": "remote"
+    "version": ">= 27.0.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
     },
     "preview": {
       "distribution": "internal",
@@ -23,8 +26,16 @@
     },
     "production": {
       "autoIncrement": true,
+      "distribution": "internal",
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://dev-api.maitrepos.com",
+        "EXPO_PUBLIC_API_BASE_URL": "https://dev-api.maitrepos.com",
+        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "AIzaSyA2qxAJag8F89Q_TdtjqU_42W6JAVJ5_qg",
+        "EXPO_PUBLIC_VAPI_ASSISTANT_ID": "ed6d95ac-c202-4b86-a5e1-8647ba87638f",
+        "EXPO_PUBLIC_VAPI_PUBLIC_KEY": "284fef39-2d93-4de5-881b-a082dacca5b1"
       }
     }
   },
