@@ -2,7 +2,6 @@
   "expo": {
     "name": "MaitreD",
     "slug": "maitred-app",
-    "owner": "gayatrik",
     "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -44,7 +43,7 @@
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.maitred.app",
-      "versionCode": 3
+      "versionCode": 4
     },
     "web": {
       "output": "single",
@@ -85,7 +84,9 @@
           "android": {
             "usesCleartextTraffic": true,
             "minSdkVersion": 24,
-            "newArchEnabled": false
+            "newArchEnabled": false,
+            "enableProguardInReleaseBuilds": false,
+            "extraProguardRules": "-keep class androidx.work.** { *; }\n-keep class androidx.work.impl.** { *; }\n-keep class * extends androidx.work.impl.WorkDatabase { *; }\n-keep class androidx.startup.** { *; }\n-keep class * extends androidx.startup.Initializer { *; }\n-keep class * extends androidx.room.RoomDatabase { *; }\n-dontwarn androidx.work.**\n-dontwarn androidx.startup.**\n-dontwarn androidx.room.**\n-keep class com.oney.WebRTCModule.** { *; }\n-keep class org.webrtc.** { *; }\n-keep class co.daily.** { *; }\n-keep class com.vapi.** { *; }\n-dontwarn com.oney.WebRTCModule.**\n-dontwarn org.webrtc.**\n-dontwarn co.daily.**\n-dontwarn com.facebook.react.**"
           },
           "ios": {
             "deploymentTarget": "16.4",
@@ -111,7 +112,7 @@
         }
       },
       "eas": {
-        "projectId": "798b128a-6b30-4f91-a308-969031c13b71"
+        "projectId": "a7c3c84e-06d3-4eb3-8c68-cd079514915d"
       }
     }
   }
