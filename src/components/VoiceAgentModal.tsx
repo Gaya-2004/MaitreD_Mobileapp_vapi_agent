@@ -374,16 +374,15 @@ export default function VoiceAgentModal() {
                       <Ionicons name="sparkles" size={9} color="#DF9B34" />
                     </View>
                   )}
-                </View>
-                <View style={styles.fabPillSubtitleRow}>
                   <Ionicons
-                    name={isConnected ? 'radio' : isForYouScreen ? 'sparkles-outline' : 'mic'}
+                    name={isConnected ? 'radio' : 'mic'}
                     size={11}
-                    color={isConnected ? '#DF9B34' : '#888'}
+                    color={isConnected ? '#DF9B34' : '#777'}
+                    style={{ marginLeft: 5 }}
                   />
-                  <Text style={[styles.fabPillSubtitle, isConnected && styles.fabPillSubtitleLive]}>
-                    {isConnected ? 'Live' : routeContext.fabSubtitle}
-                  </Text>
+                  {isConnected && (
+                    <Text style={styles.fabLiveText}>Live</Text>
+                  )}
                 </View>
               </View>
             )}
@@ -400,27 +399,32 @@ export default function VoiceAgentModal() {
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerLeft}>
-                <View style={styles.headerTitleRow}>
-                  <Text style={styles.headerTitle}>MaitreD Assistant</Text>
+                <Text style={styles.headerTitle} numberOfLines={1}>MaitreD Assistant</Text>
+                <View style={styles.headerSubtitleRow}>
                   <View style={styles.contextBadge}>
-                    <Ionicons name={routeContext.badgeIcon} size={11} color="#DF9B34" />
-                    <Text style={styles.contextBadgeText}>{routeContext.badgeLabel}</Text>
+                    <Ionicons name={routeContext.badgeIcon} size={10} color="#DF9B34" />
+                    <Text style={styles.contextBadgeText} numberOfLines={1}>{routeContext.badgeLabel}</Text>
                   </View>
+                  <Text
+                    style={[styles.headerSubtitle, (isConnected || agentState !== 'IDLE') && styles.headerSubtitleLive]}
+                    numberOfLines={1}
+                  >
+                    • {statusText}
+                  </Text>
                 </View>
-                <Text style={[styles.headerSubtitle, (isConnected || agentState !== 'IDLE') && styles.headerSubtitleLive]}>
-                  {statusText}
-                </Text>
               </View>
 
-              {/* Language toggle pill */}
-              <TouchableOpacity onPress={toggleLanguage} style={styles.langPill} activeOpacity={0.75}>
-                <Ionicons name="globe-outline" size={13} color="#DF9B34" />
-                <Text style={styles.langPillText}>{isTamilMode ? 'தமிழ்' : 'EN'}</Text>
-              </TouchableOpacity>
+              <View style={styles.headerRight}>
+                {/* Language toggle pill */}
+                <TouchableOpacity onPress={toggleLanguage} style={styles.langPill} activeOpacity={0.75}>
+                  <Ionicons name="globe-outline" size={13} color="#DF9B34" />
+                  <Text style={styles.langPillText}>{isTamilMode ? 'தமிழ்' : 'EN'}</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
-                <Ionicons name="close" size={22} color="#333" />
-              </TouchableOpacity>
+                <TouchableOpacity onPress={closeModal} style={styles.closeButton}>
+                  <Ionicons name="close" size={20} color="#333" />
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Avatar Section */}
@@ -562,7 +566,7 @@ export default function VoiceAgentModal() {
             </View>
 
             {/* Footer Controls */}
-            <View style={styles.footer}>
+            <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 14) }]}>
               {!isConnected ? (
                 <TouchableOpacity
                   style={[styles.startButton, isConnecting && styles.startButtonConnecting]}
@@ -570,7 +574,7 @@ export default function VoiceAgentModal() {
                   disabled={isConnecting}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name="mic" size={22} color="white" style={{ marginRight: 10 }} />
+                  <Ionicons name="mic" size={20} color="white" style={{ marginRight: 8 }} />
                   <Text style={styles.startButtonText}>
                     {isConnecting ? 'Connecting…' : 'Start Speaking'}
                   </Text>
@@ -585,10 +589,10 @@ export default function VoiceAgentModal() {
                   >
                     <Ionicons
                       name={isMuted ? 'mic-off' : 'mic'}
-                      size={20}
+                      size={18}
                       color={isMuted ? 'white' : '#333'}
                     />
-                    <Text style={[styles.muteLabel, isMuted && { color: 'white' }]}>
+                    <Text style={[styles.muteLabel, isMuted && { color: 'white' }]} numberOfLines={1}>
                       {isMuted ? 'Unmute' : 'Mute'}
                     </Text>
                   </TouchableOpacity>
@@ -600,8 +604,8 @@ export default function VoiceAgentModal() {
                       onPress={stopSpeaking}
                       activeOpacity={0.85}
                     >
-                      <Ionicons name="hand-right" size={18} color="white" style={{ marginRight: 6 }} />
-                      <Text style={styles.stopSpeakingText}>Stop</Text>
+                      <Ionicons name="hand-right" size={16} color="white" style={{ marginRight: 5 }} />
+                      <Text style={styles.stopSpeakingText} numberOfLines={1}>Stop</Text>
                     </TouchableOpacity>
                   ) : (
                     <TouchableOpacity
@@ -611,20 +615,20 @@ export default function VoiceAgentModal() {
                     >
                       <Ionicons
                         name={isMuted ? 'mic-off' : 'radio'}
-                        size={18}
+                        size={16}
                         color="white"
-                        style={{ marginRight: 6 }}
+                        style={{ marginRight: 5 }}
                       />
-                      <Text style={styles.micListenText}>
-                        {isMuted ? 'Muted (Tap to speak)' : 'Listening • Speak now'}
+                      <Text style={styles.micListenText} numberOfLines={1}>
+                        {isMuted ? 'Muted' : agentState === 'PROCESSING' ? 'Thinking…' : 'Listening…'}
                       </Text>
                     </TouchableOpacity>
                   )}
 
                   {/* End Session */}
                   <TouchableOpacity style={styles.stopButton} onPress={endCall} activeOpacity={0.85}>
-                    <Ionicons name="close-circle" size={20} color="white" style={{ marginRight: 6 }} />
-                    <Text style={styles.stopButtonText}>Close</Text>
+                    <Ionicons name="close-circle" size={18} color="white" style={{ marginRight: 5 }} />
+                    <Text style={styles.stopButtonText} numberOfLines={1}>Close</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -642,16 +646,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     backgroundColor: '#ffffff',
-    borderRadius: 30,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
+    borderRadius: 22,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 8,
     shadowColor: '#DF9B34',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
     borderWidth: 1,
     borderColor: '#ffeedd',
     zIndex: 9999,
@@ -659,9 +663,9 @@ const styles = StyleSheet.create({
   fabCompact: {
     paddingHorizontal: 0,
     paddingVertical: 0,
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -678,14 +682,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fabAvatarBg: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#FFF5E5',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    marginRight: 8,
+    marginRight: 6,
     borderWidth: 1,
     borderColor: '#FDE68A',
   },
@@ -693,16 +697,16 @@ const styles = StyleSheet.create({
     marginRight: 0,
   },
   fabChefMascot: {
-    width: 36,
-    height: 36,
+    width: 28,
+    height: 28,
   },
   fabChefMascotCompact: {
-    width: 44,
-    height: 44,
+    width: 42,
+    height: 42,
     transform: [{ scale: 1.15 }],
   },
   fabTextWrapper: {
-    marginRight: 6,
+    marginRight: 4,
     justifyContent: 'center',
   },
   fabTitleRow: {
@@ -714,13 +718,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1a1a1a',
   },
+  fabLiveText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#DF9B34',
+    marginLeft: 3,
+  },
   fabAiMiniBadge: {
     marginLeft: 3,
   },
   fabPillSubtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+    display: 'none',
   },
   fabPillSubtitle: {
     fontSize: 10,
@@ -732,10 +740,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   fabLiveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: '#DF9B34',
+    marginLeft: 4,
   },
   fabCompactLiveDot: {
     position: 'absolute',
@@ -756,71 +765,79 @@ const styles = StyleSheet.create({
   modalContent: {
     height: SCREEN_HEIGHT * 0.88,
     backgroundColor: '#f8f9fa',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 12,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderBottomColor: '#eeeeee',
   },
   headerLeft: {
     flex: 1,
-  },
-  headerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    marginRight: 10,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: '#111111',
+    letterSpacing: 0.2,
+  },
+  headerSubtitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 6,
   },
   contextBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 3,
     backgroundColor: '#FFF5E5',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ffeedd',
+    maxWidth: 130,
   },
   contextBadgeText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
     color: '#DF9B34',
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#888888',
-    marginTop: 2,
     fontWeight: '500',
+    flex: 1,
   },
   headerSubtitleLive: {
     color: '#DF9B34',
     fontWeight: '700',
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   langPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: '#FFF5E5',
-    paddingHorizontal: 10,
+    paddingHorizontal: 9,
     paddingVertical: 5,
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DF9B34',
-    marginRight: 10,
   },
   langPillText: {
     fontSize: 12,
@@ -828,10 +845,10 @@ const styles = StyleSheet.create({
     color: '#DF9B34',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f0f0f0',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f2f3f5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1047,48 +1064,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#e8e8e8',
-    gap: 6,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#ebecee',
+    gap: 5,
   },
   muteButtonActive: {
-    backgroundColor: '#555',
+    backgroundColor: '#4b5563',
   },
   muteLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: '700',
+    color: '#1f2937',
   },
   micListenButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1.2,
-    height: 46,
+    flex: 1.35,
+    height: 44,
     backgroundColor: '#DF9B34',
-    borderRadius: 23,
+    borderRadius: 22,
+    paddingHorizontal: 8,
   },
   micListenButtonActive: {
     backgroundColor: '#e67e22',
   },
   micListenText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   stopSpeakingButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1.2,
-    height: 46,
+    flex: 1.35,
+    height: 44,
     backgroundColor: '#f59e0b',
-    borderRadius: 23,
+    borderRadius: 22,
+    paddingHorizontal: 8,
   },
   stopSpeakingText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   stopButton: {
@@ -1096,9 +1115,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    height: 46,
+    height: 44,
     backgroundColor: '#dc2626',
-    borderRadius: 23,
+    borderRadius: 22,
+    gap: 4,
   },
   stopButtonText: {
     color: 'white',
