@@ -21,9 +21,11 @@
         "NSMicrophoneUsageDescription": "Allow MaitreD to access your microphone for the voice assistant.",
         "NSCameraUsageDescription": "Allow MaitreD to access your camera to scan table QR codes.",
         "NSLocationWhenInUseUsageDescription": "Allow MaitreD to use your location to find nearby addresses.",
-        "NSPhotoLibraryUsageDescription": "Allow MaitreD to access your photos for profile pictures."
+        "NSPhotoLibraryUsageDescription": "Allow MaitreD to access your photos for profile pictures.",
+        "ITSAppUsesNonExemptEncryption": false
       },
-      "bundleIdentifier": "com.maitred.app"
+      "bundleIdentifier": "com.maitred.app",
+      "bitcode": false
     },
     "android": {
       "adaptiveIcon": {
@@ -116,3 +118,4 @@
     }
   }
 }
+
