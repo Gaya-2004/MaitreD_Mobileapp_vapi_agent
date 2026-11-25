@@ -2,7 +2,7 @@
   "expo": {
     "name": "MaitreD",
     "slug": "maitred-app",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "maitred",
@@ -45,7 +45,7 @@
         "android.permission.ACCESS_COARSE_LOCATION"
       ],
       "package": "com.maitred.app",
-      "versionCode": 5
+      "versionCode": 7
     },
     "web": {
       "output": "single",
