@@ -765,12 +765,26 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         const target = rawCategory || rawQuery || '';
         const isShowAll = !target || /^(all|all menus?|menu|everything|items)$/i.test(target);
 
-        // Check if target is a Region header
+        // Check if target is a Region header or Dietary filter
         const lowerTarget = target.toLowerCase();
         let targetRegion: string | undefined = rawRegion;
         let targetCategory: string | undefined = rawCategory;
 
-        if (lowerTarget.includes('south') || lowerTarget.includes('dosa') || lowerTarget.includes('idly') || lowerTarget.includes('breakfast') || lowerTarget.includes('vada')) {
+        const isVegTarget = (
+          lowerTarget.includes('vegetarian') ||
+          /\bveg\b/i.test(lowerTarget) ||
+          lowerTarget.includes('pure veg')
+        ) && !(
+          lowerTarget.includes('non-veg') ||
+          lowerTarget.includes('non veg') ||
+          lowerTarget.includes('nonveg') ||
+          lowerTarget.includes('non vegetarian')
+        );
+
+        if (isVegTarget) {
+          targetRegion = 'Vegetarian';
+          targetCategory = 'all';
+        } else if (lowerTarget.includes('south') || lowerTarget.includes('dosa') || lowerTarget.includes('idly') || lowerTarget.includes('breakfast') || lowerTarget.includes('vada')) {
           targetRegion = 'South Indian';
           if (lowerTarget.includes('south')) targetCategory = 'all';
         } else if (lowerTarget.includes('north') || lowerTarget.includes('naan') || lowerTarget.includes('roti') || lowerTarget.includes('tandoori') || lowerTarget.includes('kulcha') || lowerTarget.includes('salad') || lowerTarget.includes('raitha')) {
@@ -798,7 +812,7 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         DeviceEventEmitter.emit('menu_filter_header', {
           category: targetCategory || (isShowAll ? 'all' : target),
           region: targetRegion || (isShowAll ? 'All Regions' : undefined),
-          search: (!targetCategory && !targetRegion && rawQuery && !isShowAll) ? rawQuery : ''
+          search: (!targetCategory && !targetRegion && rawQuery && !isShowAll && !isVegTarget) ? rawQuery : ''
         });
 
         // Navigate screen to /menu
@@ -809,14 +823,18 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
             params: {
               categoryName: targetCategory || (isShowAll ? 'all' : target),
               region: targetRegion || (isShowAll ? 'All Regions' : undefined),
-              search: (!targetCategory && !targetRegion && rawQuery && !isShowAll) ? rawQuery : ''
+              search: (!targetCategory && !targetRegion && rawQuery && !isShowAll && !isVegTarget) ? rawQuery : ''
             }
           }
         }).catch(() => { });
 
         const normalizedArgs: Record<string, any> = {};
-        if (rawQuery && !isShowAll) normalizedArgs.query = rawQuery;
-        if (rawCategory) normalizedArgs.category_name = rawCategory;
+        if (isVegTarget) {
+          normalizedArgs.category_name = 'South Indian';
+        } else {
+          if (rawQuery && !isShowAll) normalizedArgs.query = rawQuery;
+          if (rawCategory) normalizedArgs.category_name = rawCategory;
+        }
 
         console.log("[VapiStore] RAW TOOL:", fnName);
         console.log("[VapiStore] CANONICAL TOOL: menu_search");
@@ -824,6 +842,14 @@ async function handleVapiToolCall(tool: any): Promise<{ toolCallId: string; resu
         console.log("[VapiStore] RESTAURANT ID:", restaurantId);
 
         let data = await fetchAgentData('menu_search', normalizedArgs);
+
+        if (isVegTarget) {
+          data = {
+            success: true,
+            summary: "Showing our delicious vegetarian specials from South Indian and North Indian cuisines on your screen.",
+            menu_items: data?.menu_items || []
+          };
+        }
 
         // Fallback: If category_name resulted in CATEGORY_NOT_FOUND, search by query
         if (data.code === 'CATEGORY_NOT_FOUND' && rawCategory) {

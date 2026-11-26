@@ -56,6 +56,37 @@ const itemStyles = StyleSheet.create({
   stepVal: { fontSize: 12, color: '#000', width: 24, textAlign: 'center' },
 });
 
+export const isItemVegetarian = (item: any, itemCat?: any) => {
+  if (itemCat?.region === 'Non-Veg Varieties') return false;
+  const catLabel = (itemCat?.label || itemCat?.name || '').toLowerCase();
+  if (
+    catLabel.includes('chicken') ||
+    catLabel.includes('mutton') ||
+    catLabel.includes('fish') ||
+    catLabel.includes('seafood') ||
+    catLabel.includes('egg') ||
+    catLabel.includes('non-veg') ||
+    catLabel.includes('non veg')
+  ) {
+    return false;
+  }
+  const itemName = (item?.name || '').toLowerCase();
+  if (
+    itemName.includes('chicken') ||
+    itemName.includes('mutton') ||
+    itemName.includes('fish') ||
+    itemName.includes('prawn') ||
+    itemName.includes('crab') ||
+    itemName.includes('seafood') ||
+    /\begg\b/.test(itemName) ||
+    itemName.includes('non-veg') ||
+    itemName.includes('non veg')
+  ) {
+    return false;
+  }
+  return true;
+};
+
 const MenuItemCard = React.memo(function MenuItemCard({
   item,
   count,
@@ -185,6 +216,27 @@ export default function App() {
     const lowerRegion = (regionHint || '').toLowerCase().trim();
 
     console.log(`[Menu] applyHeaderFilter -> target: "${lowerTarget}", regionHint: "${lowerRegion}"`);
+
+    // 0. Vegetarian matching (Voice suggestions, search, or direct region)
+    const isVegMatch = (
+      lowerRegion === 'vegetarian' ||
+      lowerRegion === 'veg' ||
+      lowerTarget === 'vegetarian' ||
+      lowerTarget === 'veg' ||
+      lowerTarget === 'pure veg' ||
+      lowerTarget === 'vegetarian items' ||
+      lowerTarget === 'show vegetarian items' ||
+      lowerTarget === 'veg items' ||
+      lowerTarget.includes('show vegetarian') ||
+      lowerTarget.includes('vegetarian items')
+    );
+
+    if (isVegMatch) {
+      setActiveRegion('Vegetarian');
+      setActiveCat('all');
+      setSearchQuery('');
+      return;
+    }
 
     // 1. Direct Region matching
     if (
@@ -672,7 +724,7 @@ export default function App() {
             });
             
             setAllCategories(Array.from(rawCategoryMap.values()));
-            setRegions(["All Regions", ...Array.from(validRegions)]);
+            setRegions(["All Regions", "Vegetarian", ...Array.from(validRegions)]);
             setMenuItems(formattedItems);
 
             // Re-apply any pending filter once categories and items are loaded
@@ -811,7 +863,9 @@ export default function App() {
       const itemCat = allCategories.find(c => c.id === item.category);
       
       // Region match
-      if (activeRegion !== "All Regions") {
+      if (activeRegion === "Vegetarian") {
+        if (!isItemVegetarian(item, itemCat)) return false;
+      } else if (activeRegion !== "All Regions") {
         if (itemCat?.region !== activeRegion) return false;
       }
       
@@ -824,7 +878,24 @@ export default function App() {
       
       // Search match
       if (searchQuery.trim() !== "") {
-        if (!item.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+        const rawQ = searchQuery.trim().toLowerCase();
+        const isVegSearch = /^(vegetarian|veg|pure\s*veg|vegetarian\s*items|veg\s*items|veg\s*food|vegetarian\s*food)$/i.test(rawQ);
+        const isNonVegSearch = /^(non[- ]?veg|non[- ]?vegetarian|non[- ]?veg\s*items)$/i.test(rawQ);
+
+        if (isVegSearch) {
+          if (!isItemVegetarian(item, itemCat)) return false;
+        } else if (isNonVegSearch) {
+          if (isItemVegetarian(item, itemCat)) return false;
+        } else {
+          const cleanQuery = rawQ.replace(/^(veg|vegetarian|pure\s*veg)\s+/i, '').trim();
+          const isPrefixedVeg = cleanQuery !== rawQ;
+          if (isPrefixedVeg) {
+            if (!isItemVegetarian(item, itemCat)) return false;
+            if (cleanQuery && !item.name.toLowerCase().includes(cleanQuery)) return false;
+          } else {
+            if (!item.name.toLowerCase().includes(rawQ)) return false;
+          }
+        }
       }
       
       // Availability Filter
@@ -845,7 +916,13 @@ export default function App() {
     const seenTabLabels = new Set<string>();
     const uniqueCategoryTabs: { id: string; label: string; region?: string }[] = [];
     allCategories.forEach(cat => {
-      if (activeRegion !== "All Regions" && cat.region !== activeRegion) return;
+      if (activeRegion === "Vegetarian") {
+        if (cat.region === "Non-Veg Varieties") return;
+        const catLabel = (cat.label || cat.name || '').toLowerCase();
+        if (catLabel.includes('chicken') || catLabel.includes('mutton') || catLabel.includes('fish') || catLabel.includes('egg') || catLabel.includes('non-veg')) return;
+      } else if (activeRegion !== "All Regions" && cat.region !== activeRegion) {
+        return;
+      }
       const lower = cat.label.toLowerCase();
       if (!seenTabLabels.has(lower)) {
         seenTabLabels.add(lower);
@@ -882,6 +959,11 @@ export default function App() {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="close-circle" size={18} color="#999" style={{ marginRight: 8 }} />
+            </TouchableOpacity>
+          )}
         </View>
         <TouchableOpacity style={styles.filterBtn} onPress={() => setIsFilterModalVisible(true)}>
           <Ionicons name="options-outline" size={20} color="#666" />

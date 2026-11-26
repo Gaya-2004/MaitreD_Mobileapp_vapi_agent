@@ -488,12 +488,23 @@ export async function executeSingleAction(act: UIAction): Promise<ActionResult> 
       case 'filter_menu': {
         const cat = act.category_name || (act as any).category || (act as any).variety || (act as any).name || '';
         const region = (act as any).region || '';
+        const targetStr = `${cat} ${region}`.toLowerCase();
+        const isVeg = /vegetarian|\bveg\b|pure veg/i.test(targetStr) && !/non[- ]?veg/i.test(targetStr);
+        if (isVeg) {
+          navigateScreen('/menu', { categoryName: 'all', region: 'Vegetarian', search: '' });
+          return { success: true, action: 'open_category', message: 'Showing vegetarian menu items.' };
+        }
         navigateScreen('/menu', { categoryName: cat, region: region, search: '' });
         return { success: true, action: 'open_category', message: `Opened ${cat || region || 'Menu'}.` };
       }
 
       case 'search_menu': {
         const query = (act as any).query || (act as any).search || '';
+        const isVeg = /vegetarian|\bveg\b|pure veg/i.test(query) && !/non[- ]?veg/i.test(query);
+        if (isVeg) {
+          navigateScreen('/menu', { categoryName: 'all', region: 'Vegetarian', search: '' });
+          return { success: true, action: 'search_menu', message: 'Showing vegetarian menu items.' };
+        }
         navigateScreen('/menu', { search: query });
         return { success: true, action: 'search_menu', message: `Searched menu for ${query}.` };
       }
@@ -529,6 +540,11 @@ export async function executeSingleAction(act: UIAction): Promise<ActionResult> 
 
       case 'search_menu': {
         const query = act.payload?.query || act.payload?.params?.search || act.name || '';
+        const isVeg = /vegetarian|\bveg\b|pure veg/i.test(query) && !/non[- ]?veg/i.test(query);
+        if (isVeg) {
+          navigateScreen('/menu', { categoryName: 'all', region: 'Vegetarian', search: '' });
+          return { success: true, action, message: 'Showing vegetarian menu items.', data: { region: 'Vegetarian' } };
+        }
         navigateScreen('/menu', { search: query });
         return { success: true, action, message: `Searching menu for "${query}".`, data: { search: query } };
       }

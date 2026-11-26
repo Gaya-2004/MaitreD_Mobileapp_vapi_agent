@@ -21,6 +21,7 @@ import { usePathname, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
+  DeviceEventEmitter,
   Dimensions,
   Easing,
   Image,
@@ -265,6 +266,28 @@ export default function VoiceAgentModal() {
 
   const handleSuggestionPress = (sug: string) => {
     setActiveRouter(router);
+
+    // Pre-emptively trigger instant local navigation for quick suggestions
+    if (sug === 'Show vegetarian items') {
+      DeviceEventEmitter.emit('menu_filter_header', {
+        category: 'all',
+        region: 'Vegetarian',
+        search: '',
+      });
+      router.push({
+        pathname: '/menu',
+        params: {
+          categoryName: 'all',
+          region: 'Vegetarian',
+          search: '',
+        },
+      });
+    } else if (sug === 'Show me the menu') {
+      router.push('/menu');
+    } else if (sug === 'Proceed to checkout') {
+      router.push('/(checkout)/checkout');
+    }
+
     if (!isConnected && !isConnecting) {
       startCall().then(() => {
         setTimeout(() => sendTextMessage(sug), 500);
